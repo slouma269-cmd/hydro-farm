@@ -1,0 +1,10 @@
+const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);function toast(t){let x=$('#toast');x.textContent=t;x.classList.add('show');setTimeout(()=>x.classList.remove('show'),1800)}
+function page(id){$$('.page').forEach(x=>x.classList.toggle('active',x.id==id));$$('nav button').forEach(x=>x.classList.toggle('active',x.dataset.page==id));scrollTo(0,0)}
+$$('[data-page]').forEach(x=>x.onclick=()=>page(x.dataset.page));$('#bell').onclick=()=>page('alerts');
+$$('.sw').forEach(x=>x.onclick=()=>{x.classList.toggle('on');toast(x.dataset.name+': '+(x.classList.contains('on')?'تشغيل':'إيقاف'))});
+$('#mode').onclick=e=>{e.target.textContent=e.target.textContent==='AUTO'?'MANUAL':'AUTO';toast('تم تغيير وضع التحكم')};
+$('#clear').onclick=()=>{$('#alertsList').innerHTML='<article class="alert good">🟢 <div><b>لا توجد تنبيهات جديدة</b><small>النظام يعمل بشكل طبيعي</small></div></article>';toast('تم مسح التنبيهات')};
+$('#save').onclick=()=>toast('تم حفظ الإعدادات');
+[['fan','fo'],['crit','fc'],['pad','po'],['low','lo'],['critical','lc']].forEach(([a,b])=>$('#'+a).oninput=e=>$('#'+b).value=e.target.value);
+function chart(id,v){let c=$('#'+id),ctx=c.getContext('2d');function draw(){let r=c.getBoundingClientRect(),d=devicePixelRatio||1;c.width=r.width*d;c.height=r.height*d;ctx.scale(d,d);let w=r.width,h=r.height,p=10,min=Math.min(...v)-1,max=Math.max(...v)+1;ctx.strokeStyle='#dce8e5';for(let i=0;i<4;i++){let y=p+i*(h-2*p)/3;ctx.beginPath();ctx.moveTo(p,y);ctx.lineTo(w-p,y);ctx.stroke()}ctx.strokeStyle='#0b7a70';ctx.lineWidth=3;ctx.beginPath();v.forEach((z,i)=>{let x=p+i*(w-2*p)/(v.length-1),y=h-p-(z-min)/(max-min)*(h-2*p);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke()}draw();addEventListener('resize',draw)}
+chart('c1',[25,26,27,29,31,30,28,29,32,31,29,28.4]);chart('c2',[24,26,28,31,34,32,30,29,28,27,29,28]);chart('c3',[95,91,87,84,80,76,72,70,74,78,80,78]);
