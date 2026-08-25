@@ -64,3 +64,33 @@ oldSave?.addEventListener('click',()=>{connectMQTT()});
 const mb=document.getElementById('mqttConnect');mb?.addEventListener('click',connectMQTT);
 try{const u=localStorage.getItem('hydro_mqtt_user');if(u&&document.getElementById('mqttUser'))document.getElementById('mqttUser').value=u}catch(e){}
 setConnection(false);
+
+
+/* Hydro Farm MQTT Cloud connection */
+(function(){
+ const $=id=>document.getElementById(id);
+ const host=$("mqttHost"),port=$("mqttPort"),user=$("mqttUsername"),pass=$("mqttPassword");
+ const status=$("mqttConnectionStatus"),connectBtn=$("mqttConnectBtn"),disconnectBtn=$("mqttDisconnectBtn"),last=$("mqttLastMessage");
+ if(!host||!port||!user||!pass||!connectBtn)return;
+ let client=null;
+ const topics={air_temperature:"hydrofarm/sensors/air_temperature",humidity:"hydrofarm/sensors/humidity",water_temperature:"hydrofarm/sensors/water_temperature",water_level:"hydrofarm/sensors/water_level",ph:"hydrofarm/sensors/ph",ec:"hydrofarm/sensors/ec",status:"hydrofarm/status",alerts:"hydrofarm/alerts",pump:"hydrofarm/control/pump",fan:"hydrofarm/control/fan",pad:"hydrofarm/control/pad"};
+ try{host.value=localStorage.getItem("hf_mqtt_host")||host.value;port.value=localStorage.getItem("hf_mqtt_port")||port.value;user.value=localStorage.getItem("hf_mqtt_user")||user.value}catch(e){}
+ function st(x){status.textContent=x}
+ function save(){try{localStorage.setItem("hf_mqtt_host",host.value.trim());localStorage.setItem("hf_mqtt_port",port.value.trim());localStorage.setItem("hf_mqtt_user",user.value.trim())}catch(e){}}
+ function connect(){
+   if(!window.mqtt){st("🔴 مكتبة MQTT غير متاحة");return}
+   const h=host.value.trim(),p=Number(port.value)||8884,u=user.value.trim(),pw=pass.value;
+   if(!h||!u||!pw){st("🟠 أدخل Host وUsername وPassword");return}
+   save(); if(client)try{client.end(true)}catch(e){}
+   st("🟡 جاري الاتصال...");
+   client=mqtt.connect("wss://"+h+":"+p+"/mqtt",{username:u,password:pw,clientId:"hydrofarm_"+Math.random().toString(16).slice(2),clean:true,connectTimeout:10000,reconnectPeriod:3000,keepalive:30});
+   client.on("connect",()=>{st("🟢 MQTT متصل");client.subscribe(Object.values(topics).filter(t=>!t.includes("/control/")));last.textContent="تم الاتصال بـ HiveMQ Cloud.";});
+   client.on("reconnect",()=>st("🟡 إعادة الاتصال..."));client.on("offline",()=>st("🟠 غير متصل"));client.on("close",()=>st("🔴 غير متصل"));
+   client.on("error",e=>{console.error(e);st("🔴 خطأ في MQTT");last.textContent=e.message||"تعذر الاتصال";});
+   client.on("message",(topic,payload)=>{const value=payload.toString();last.textContent="آخر رسالة: "+topic+" = "+value;window.dispatchEvent(new CustomEvent("hydrofarm:mqtt-message",{detail:{topic,value}}));});
+ }
+ function disconnect(){if(client){client.end(true);client=null}st("🔴 غير متصل")}
+ function publish(topic,value){if(!client||!client.connected){st("🟠 MQTT غير متصل");return false}client.publish(topic,String(value));return true}
+ connectBtn.onclick=connect;if(disconnectBtn)disconnectBtn.onclick=disconnect;
+ window.HydroFarmMQTT={connect,disconnect,publish,pump:v=>publish(topics.pump,v?"ON":"OFF"),fan:v=>publish(topics.fan,v?"ON":"OFF"),pad:v=>publish(topics.pad,v?"ON":"OFF"),topics};
+})();
