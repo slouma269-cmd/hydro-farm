@@ -1,8 +1,10 @@
 {
-  "name": "Hydro Farm GH001",
+  "name": "Hydro Farm",
   "short_name": "Hydro Farm",
   "start_url": "./",
   "display": "standalone",
+  "background_color": "#07141b",
+  "theme_color": "#07141b",
   "lang": "ar",
   "dir": "rtl"
 }
