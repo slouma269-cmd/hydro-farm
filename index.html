@@ -1,0 +1,60 @@
+<!doctype html><html lang="ar" dir="rtl"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b7a70"><title>Hydro Farm</title><link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<meta name="theme-color" content="#0b7a70">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Hydro Farm">
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script></head>
+<body><div class="app">
+<header><div><b>🌱 Hydro Farm</b><small>الزراعة المائية الذكية</small></div><button id="bell">🔔<i>3</i></button><button id="installApp" hidden>📲 تثبيت التطبيق</button></header>
+<main>
+<section id="home" class="page active">
+<div class="status"><span>●</span><div><b>النظام متصل</b><small>ESP32 • MQTT • Online</small></div><strong>AUTO</strong></div>
+<h2>المراقبة</h2><div class="cards">
+<div class="card">🌡️<small>حرارة الهواء</small><b id="temp">28.4°C</b><em>طبيعي</em></div>
+<div class="card">💧<small>الرطوبة</small><b id="hum">62%</b><em>طبيعي</em></div>
+<div class="card">🌊<small>حرارة الماء</small><b id="wt">24.8°C</b><em>جيد</em></div>
+<div class="card">💦<small>مستوى الخزان</small><b id="level">78%</b><em>جيد</em></div>
+<div class="card">⚡<small>EC</small><b id="ec">1.42</b><em>mS/cm</em></div>
+<div class="card">🧪<small>pH</small><b id="ph">6.1</b><em>مناسب</em></div></div>
+<h2>التحكم السريع</h2><div class="panel">
+<div><b>💧 المضخة</b><small>AUTO</small><button class="sw on" data-name="المضخة"></button></div>
+<div><b>🌀 المروحة</b><small>AUTO</small><button class="sw on" data-name="المروحة"></button></div>
+<div><b>❄️ Pad Cooling</b><small>AUTO</small><button class="sw" data-name="Pad Cooling"></button></div></div>
+<div class="chart panel"><div><b>🌡️ الحرارة</b><strong id="cv">28.4°C</strong></div><canvas id="c1"></canvas></div>
+</section>
+
+<section id="data" class="page"><h1>📊 البيانات</h1><p>تحليل القياسات</p>
+<div class="ranges"><button class="sel">1س</button><button>6س</button><button>24س</button><button>7أيام</button></div>
+<div class="chart panel"><b>🌡️ حرارة الهواء</b><canvas id="c2"></canvas></div>
+<div class="chart panel"><b>💦 مستوى الخزان</b><canvas id="c3"></canvas></div>
+<div class="stats"><div>🌊 <b>24.8°C</b><small>حرارة الماء</small></div><div>⚡ <b>1.42</b><small>EC</small></div><div>🧪 <b>6.1</b><small>pH</small></div><div>💧 <b>62%</b><small>رطوبة</small></div></div>
+</section>
+
+<section id="system" class="page"><h1>🌱 النظام</h1><p>حالة المكونات</p>
+<div class="system"><div>🌡️<b>28.4°C</b><small>هواء</small></div><span>↓</span><div>🌀<b>المروحة</b><small>تشغيل تلقائي</small></div><span>↓</span><div>🌱<b>أبراج الزراعة</b><small>تعمل بشكل طبيعي</small></div><span>↓</span><div>💧<b>الخزان 78%</b><small>24.8°C</small></div><span>↓</span><div>💧<b>المضخة ON</b><small>AUTO</small></div></div>
+<div class="panel"><div class="line"><b>❄️ Pad Cooling</b><button class="sw" data-name="Pad Cooling"></button></div><div class="line"><b>الوضع</b><button id="mode">AUTO</button></div></div></section>
+
+<section id="alerts" class="page"><h1>🔔 التنبيهات</h1><p>مراقبة الخلل تلقائيًا</p>
+<div id="alertsList"><article class="alert danger">🔴 <div><b>درجة الحرارة مرتفعة</b><small>36.2°C — الحد 30°C</small></div></article>
+<article class="alert warning">🟠 <div><b>مستوى الخزان يقترب من الحد</b><small>22% — الحد 20%</small></div></article>
+<article class="alert good">🟢 <div><b>الاتصال مستقر</b><small>ESP32 + MQTT</small></div></article></div>
+<button class="primary" id="clear">مسح التنبيهات</button></section>
+
+<section id="settings" class="page"><h1>⚙️ الإعدادات</h1><p>حدود التنبيه والتحكم</p>
+<div class="settings panel"><h3>🌡️ الحرارة</h3>
+<label>Warning <output id="fo">30</output>°C<input id="fan" type="range" min="20" max="45" value="30"></label>
+<label>Critical <output id="fc">33</output>°C<input id="crit" type="range" min="25" max="50" value="33"></label>
+<label>Pad Cooling <output id="po">32</output>°C<input id="pad" type="range" min="25" max="45" value="32"></label></div>
+<div class="settings panel"><h3>💦 مستوى الخزان</h3><label>Warning <output id="lo">20</output>%<input id="low" type="range" min="5" max="50" value="20"></label><label>Critical <output id="lc">10</output>%<input id="critical" type="range" min="2" max="30" value="10"></label></div>
+<div class="settings panel"><h3>☁️ HiveMQ Cloud</h3>
+<label>MQTT Username<input id="mqttUser" type="text" value="hydro01" autocomplete="username"></label>
+<label>MQTT Password<input id="mqttPass" type="password" placeholder="أدخل كلمة المرور الجديدة" autocomplete="current-password"></label>
+<button class="primary" id="mqttConnect">اتصال MQTT</button></div>
+<div class="settings panel"><h3>📡 الاتصال</h3><div class="line">Wi‑Fi <b class="green">متصل</b></div><div class="line">MQTT <b class="green">متصل</b></div><div class="line">ESP32 <b class="green">Online</b></div></div><button class="primary" id="save">حفظ الإعدادات</button></section>
+</main>
+<nav><button class="active" data-page="home">🏠<small>الرئيسية</small></button><button data-page="data">📊<small>البيانات</small></button><button data-page="system">🌱<small>النظام</small></button><button data-page="alerts">🔔<small>التنبيهات</small></button><button data-page="settings">⚙️<small>الإعدادات</small></button></nav>
+<div id="toast"></div></div><script src="app.js"></script><script src="pwa.js"></script></body></html>
