@@ -4,47 +4,134 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b7a70">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Hydro Farm GH001</title>
-<link rel="stylesheet" href="style.css">
 <link rel="manifest" href="manifest.json">
-<script src="https://unpkg.com/mqtt@5.14.1/dist/mqtt.min.js"></script>
+<link rel="stylesheet" href="style.css">
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body>
 <div class="app">
-<header><div><b>🌱 Hydro Farm</b><small>البيت المحمي GH001</small></div><span id="connectionDot" class="dot offline">●</span></header>
-<main><section class="page active">
-<div class="status panel"><div><b id="mqttState">MQTT غير متصل</b><small id="mqttSub">HiveMQ Cloud • GH001</small></div><strong id="homeMode">AUTO</strong></div>
-<h2>المراقبة</h2>
-<div class="cards">
-<div class="card">🌡️<small>حرارة الهواء</small><b id="temp">--.- °C</b><em id="tempStatus">انتظار</em></div>
-<div class="card">💧<small>الرطوبة</small><b id="hum">-- %</b><em id="humStatus">انتظار</em></div>
-<div class="card">🌊<small>حرارة الماء</small><b id="wt">--.- °C</b><em id="wtStatus">انتظار</em></div>
-<div class="card">💦<small>مستوى الخزان</small><b id="level">-- %</b><em id="levelStatus">انتظار</em></div>
-<div class="card">⚡<small>EC</small><b id="ec">--</b><em>mS/cm</em></div>
-<div class="card">🧪<small>pH</small><b id="ph">--</b><em>pH</em></div>
+
+<header>
+  <div>
+    <b>🌱 Hydro Farm</b>
+    <small>الزراعة المائية الذكية • GH001</small>
+  </div>
+  <button id="bell" class="icon-btn" aria-label="التنبيهات">🔔<i id="bellCount">0</i></button>
+</header>
+
+<main>
+<section id="home" class="page active">
+  <div class="status">
+    <span id="mqttDot">●</span>
+    <div>
+      <b id="mqttState">MQTT غير متصل</b>
+      <small id="mqttSub">HiveMQ Cloud • Offline</small>
+    </div>
+    <strong id="homeMode">AUTO</strong>
+  </div>
+
+  <h2>المراقبة</h2>
+  <div class="cards">
+    <div class="card">🌡️<small>حرارة الهواء</small><b id="temp">--.-°C</b><em id="tempStatus">انتظار البيانات</em></div>
+    <div class="card">💧<small>الرطوبة</small><b id="hum">--%</b><em id="humStatus">انتظار البيانات</em></div>
+    <div class="card">🌊<small>حرارة الماء</small><b id="wt">--.-°C</b><em id="wtStatus">انتظار البيانات</em></div>
+    <div class="card">💦<small>مستوى الخزان</small><b id="level">--%</b><em id="levelStatus">انتظار البيانات</em></div>
+    <div class="card">⚡<small>EC</small><b id="ec">--</b><em>mS/cm</em></div>
+    <div class="card">🧪<small>pH</small><b id="ph">--</b><em id="phStatus">انتظار البيانات</em></div>
+  </div>
+
+  <h2>التحكم السريع</h2>
+  <div class="panel controls">
+    <div><div><b>💧 المضخة</b><small id="pumpMode">AUTO</small></div><button class="sw" id="pumpSwitch" data-device="pump" aria-label="المضخة"></button></div>
+    <div><div><b>🌀 المروحة</b><small id="fanMode">AUTO</small></div><button class="sw" id="fanSwitch" data-device="fan" aria-label="المروحة"></button></div>
+    <div><div><b>❄️ Pad Cooling</b><small id="padMode">AUTO</small></div><button class="sw" id="padSwitch" data-device="pad_cooling" aria-label="Pad Cooling"></button></div>
+  </div>
+
+  <div class="chart panel">
+    <div><b>🌡️ حرارة الهواء</b><strong id="cv">--.-°C</strong></div>
+    <canvas id="c1"></canvas>
+  </div>
+</section>
+
+<section id="data" class="page">
+  <h1>📊 البيانات</h1><p>القياسات القادمة من ESP32 عبر MQTT</p>
+  <div class="ranges">
+    <button class="sel" data-range="1">1س</button><button data-range="6">6س</button>
+    <button data-range="24">24س</button><button data-range="168">7أيام</button>
+  </div>
+  <div class="chart panel"><b>🌡️ حرارة الهواء</b><canvas id="c2"></canvas></div>
+  <div class="chart panel"><b>💦 مستوى الخزان</b><canvas id="c3"></canvas></div>
+  <div class="stats">
+    <div>🌊<b id="dataWt">--.-°C</b><small>حرارة الماء</small></div>
+    <div>⚡<b id="dataEc">--</b><small>EC</small></div>
+    <div>🧪<b id="dataPh">--</b><small>pH</small></div>
+    <div>💧<b id="dataHum">--%</b><small>رطوبة</small></div>
+  </div>
+</section>
+
+<section id="system" class="page">
+  <h1>🌱 النظام</h1><p>حالة المكونات والتحكم</p>
+  <div class="system">
+    <div>🌡️<b id="systemTemp">--.-°C</b><small>هواء</small></div><span>↓</span>
+    <div>🌀<b id="systemFan">المروحة OFF</b><small id="systemFanState">AUTO</small></div><span>↓</span>
+    <div>🌱<b>أبراج الزراعة</b><small>حالة النظام</small></div><span>↓</span>
+    <div>💧<b id="systemTank">الخزان --%</b><small id="systemWaterTemp">--.-°C</small></div><span>↓</span>
+    <div>💧<b id="systemPump">المضخة OFF</b><small id="systemPumpMode">AUTO</small></div>
+  </div>
+  <div class="panel">
+    <div class="line"><b>❄️ Pad Cooling</b><button class="sw" id="systemPadSwitch" data-device="pad_cooling"></button></div>
+    <div class="line"><b>الوضع العام</b><button id="mode">AUTO</button></div>
+  </div>
+</section>
+
+<section id="alerts" class="page">
+  <h1>🔔 التنبيهات</h1><p>رسائل النظام والاتصال</p>
+  <div id="alertsList"><article class="alert good">🟢<div><b>جاهز</b><small>في انتظار بيانات ESP32</small></div></article></div>
+  <button class="primary" id="clear">مسح التنبيهات</button>
+</section>
+
+<section id="settings" class="page">
+  <h1>⚙️ الإعدادات</h1><p>إعداد اتصال HiveMQ Cloud</p>
+  <div class="settings panel">
+    <h3>☁️ HiveMQ Cloud</h3>
+    <label>MQTT Host<input id="mqttHost" value="99580666d99a4632b4a1d5087e22d494.s1.eu.hivemq.cloud" readonly></label>
+    <label>MQTT Port<input id="mqttPort" type="number" value="8884" readonly></label>
+    <label>Username<input id="mqttUser" value="hydro01-test" autocomplete="username"></label>
+    <label>Password<input id="mqttPass" type="password" placeholder="أدخل كلمة المرور" autocomplete="current-password"></label>
+    <button class="primary" id="mqttConnect">اتصال MQTT</button>
+  </div>
+
+  <div class="settings panel">
+    <h3>📡 Topics — GH001</h3>
+    <div class="line"><span>Telemetry</span><b>greenhouse/GH001/telemetry</b></div>
+    <div class="line"><span>Control</span><b>greenhouse/GH001/control/+/set</b></div>
+    <div class="line"><span>Actuator State</span><b>greenhouse/GH001/actuators/+/state</b></div>
+    <div class="line"><span>Status</span><b>greenhouse/GH001/status</b></div>
+    <div class="line"><span>Alerts</span><b>greenhouse/GH001/alerts</b></div>
+  </div>
+
+  <div class="settings panel">
+    <h3>📡 حالة الاتصال</h3>
+    <div class="line">MQTT <b id="mqttStatus">غير متصل</b></div>
+    <div class="line">ESP32 <b id="espStatus">Offline</b></div>
+    <div class="line">آخر Telemetry <b id="lastData">--</b></div>
+  </div>
+</section>
+</main>
+
+<nav>
+  <button class="active" data-page="home">🏠<small>الرئيسية</small></button>
+  <button data-page="data">📊<small>البيانات</small></button>
+  <button data-page="system">🌱<small>النظام</small></button>
+  <button data-page="alerts">🔔<small>التنبيهات</small></button>
+  <button data-page="settings">⚙️<small>الإعدادات</small></button>
+</nav>
+<div id="toast"></div>
 </div>
-<h2>التحكم</h2>
-<div class="panel controls">
-<div><div><b>💧 المضخة</b><small id="pumpMode">AUTO</small></div><button class="sw" id="pumpSwitch" data-device="pump"></button></div>
-<div><div><b>🌀 المروحة</b><small id="fanMode">AUTO</small></div><button class="sw" id="fanSwitch" data-device="fan"></button></div>
-<div><div><b>❄️ Pad Cooling</b><small id="padMode">AUTO</small></div><button class="sw" id="padSwitch" data-device="pad_cooling"></button></div>
-</div>
-<div class="panel mode-panel"><b>وضع التحكم</b><button id="mode">AUTO</button></div>
-<div class="panel">
-<h3>📡 إعدادات HiveMQ</h3>
-<label>Host<input id="mqttHost" value="99580666d99a4632b4a1d5087e22d494.s1.eu.hivemq.cloud"></label>
-<label>Port<input id="mqttPort" type="number" value="8884"></label>
-<label>Username<input id="mqttUser" value="hydro01-test" autocomplete="username"></label>
-<label>Password<input id="mqttPass" type="password" autocomplete="current-password"></label>
-<button class="primary" id="mqttConnect">اتصال MQTT</button>
-</div>
-<div class="panel topics"><h3>📡 Topics — GH001</h3>
-<div>Telemetry <b>greenhouse/GH001/telemetry</b></div>
-<div>Control <b>greenhouse/GH001/control/+/set</b></div>
-<div>Actuator State <b>greenhouse/GH001/actuators/+/state</b></div>
-<div>Status <b>greenhouse/GH001/status</b></div>
-<div>Alerts <b>greenhouse/GH001/alerts</b></div>
-</div>
-</section></main><div id="toast"></div></div>
+
 <script src="app.js"></script>
-</body></html>
+</body>
+</html>
