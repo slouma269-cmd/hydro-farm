@@ -1,1314 +1,203 @@
 /* =========================================================
-   HYDRO FARM
-   MQTT + Dashboard + Alerts + Controls
+HYDRO FARM
+المرحلة 1 — واجهة المستخدم فقط
+
+لا يوجد MQTT أو Firebase هنا.
+سيتم ربطهما في المراحل القادمة.
 ========================================================= */
 
+"use strict";
 
 /* =========================================================
-   MQTT CONFIG
+GLOBAL STATE
 ========================================================= */
 
-const MQTT_HOST =
-  "99580666d99a4632b4a1d5087e22d494.s1.eu.hivemq.cloud";
+const HydroUI = {
 
-const MQTT_PORT =
-  8884;
+page: "home",
 
-const MQTT_WS_URL =
-  `wss://${MQTT_HOST}:${MQTT_PORT}/mqtt`;
+mode: "AUTO",
 
+devices: {
+pump: true,
+fan: true,
+pad_cooling: false
+},
+
+settings: {
+fanWarning: 30,
+fanCritical: 33,
+padTemperature: 32,
+levelWarning: 20,
+levelCritical: 10
+},
+
+sensorData: {
+temperature: null,
+humidity: null,
+waterTemperature: null,
+waterLevel: null,
+ec: null,
+ph: null
+}
+
+};
 
 /* =========================================================
-   MQTT TOPICS
+DOM HELPER
 ========================================================= */
 
-const TOPIC_TELEMETRY =
-  "greenhouse/GH001/telemetry";
-
-const TOPIC_STATUS =
-  "greenhouse/GH001/status";
-
-const TOPIC_ALERTS =
-  "greenhouse/GH001/alerts";
-
-const TOPIC_CONTROL =
-  "greenhouse/GH001/control";
-
-const TOPIC_ACTUATORS =
-  "greenhouse/GH001/actuators";
-
+function $(id) {
+return document.getElementById(id);
+}
 
 /* =========================================================
-   GLOBAL STATE
+TOAST
 ========================================================= */
 
-let mqttClient =
-  null;
+let toastTimer = null;
+
+function showToast(message) {
+
+const toast = $("toast");
+
+if (!toast)
+return;
+
+toast.textContent = message;
+
+toast.classList.add("show");
+
+clearTimeout(toastTimer);
+
+toastTimer = setTimeout(() => {
+
+toast.classList.remove("show");
+
+}, 2200);
+
+}
+
+/* =========================================================
+PAGE NAVIGATION
+========================================================= */
+
+function initNavigation() {
+
+const buttons =
+document.querySelectorAll(
+"nav button[data-page]"
+);
+
+const pages =
+document.querySelectorAll(
+".page"
+);
+
+buttons.forEach(button => {
+
+button.addEventListener(
+  "click",
+  () => {
+
+    const pageName =
+      button.dataset.page;
+
+    if (!pageName)
+      return;
 
 
-let mqttConnected =
-  false;
+    HydroUI.page = pageName;
 
 
-let hydroMode =
-  "AUTO";
+    pages.forEach(page => {
+
+      page.classList.toggle(
+        "active",
+        page.id === pageName
+      );
+
+    });
 
 
-let latestData = {
+    buttons.forEach(navButton => {
 
-  waterLevel:
-    null,
+      navButton.classList.toggle(
+        "active",
+        navButton === button
+      );
 
-  airTemperature:
-    null,
+    });
 
-  airHumidity:
-    null,
 
-  waterTemperature:
-    null,
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    });
 
-  ec:
-    null,
+  }
+);
 
-  ph:
-    null,
+});
 
-  fan1:
-    0,
+}
 
-  fan2:
-    0,
+/* =========================================================
+DEVICE SWITCHES
+========================================================= */
 
-  pump1:
-    0,
+function setDeviceState(
+device,
+state,
+showMessage = true
+) {
 
-  pump2:
-    0,
+if (!(device in HydroUI.devices))
+return;
 
-  pump3:
-    0,
+HydroUI.devices[device] =
+Boolean(state);
 
-  pump4:
-    0,
+updateDeviceSwitches();
 
-  padCooling:
-    0,
+if (showMessage) {
 
-  auto:
-    1
+const names = {
+
+  pump: "المضخة",
+
+  fan: "المروحة",
+
+  pad_cooling: "Pad Cooling"
 
 };
 
 
-/* =========================================================
-   HISTORY
-========================================================= */
-
-const temperatureHistory =
-  [];
-
-const levelHistory =
-  [];
-
-
-const MAX_HISTORY =
-  60;
-
-
-/* =========================================================
-   DOM HELPERS
-========================================================= */
-
-function el(id){
-
-  return document.getElementById(id);
+showToast(
+  `${names[device] || device}: ${
+    state ? "تشغيل" : "إيقاف"
+  }`
+);
 
 }
 
-
-function setText(
-  id,
-  value
-){
-
-  const element =
-    el(id);
-
-  if(element){
-
-    element.textContent =
-      value;
-
-  }
-
 }
 
+function updateDeviceSwitches() {
 
-/* =========================================================
-   TOAST
-========================================================= */
+document
+.querySelectorAll(
+'.sw[data-device]'
+)
+.forEach(button => {
 
-function showHydroToast(
-  message
-){
-
-  const toast =
-    el("toast");
-
-
-  if(!toast)
-    return;
-
-
-  toast.textContent =
-    message;
-
-
-  toast.classList.add(
-    "show"
-  );
-
-
-  setTimeout(
-    () => {
-
-      toast.classList.remove(
-        "show"
-      );
-
-    },
-    2500
-  );
-
-}
-
-
-window.showHydroToast =
-  showHydroToast;
-
-
-/* =========================================================
-   MQTT STATUS UI
-========================================================= */
-
-function setMQTTStatus(
-  connected
-){
-
-  mqttConnected =
-    connected;
-
-
-  const dot =
-    el("mqttDot");
+  const device =
+    button.dataset.device;
 
   const state =
-    el("mqttState");
-
-  const sub =
-    el("mqttSub");
-
-  const status =
-    el("mqttStatus");
-
-  const esp =
-    el("espStatus");
-
-  const connectionAlert =
-    el("alertConnection");
-
-
-  if(connected){
-
-    if(dot)
-      dot.textContent = "●";
-
-
-    if(state)
-      state.textContent =
-        "النظام متصل";
-
-
-    if(sub)
-      sub.textContent =
-        "ESP32 • MQTT • Online";
-
-
-    if(status){
-
-      status.textContent =
-        "متصل";
-
-      status.className =
-        "green";
-
-    }
-
-
-    if(esp){
-
-      esp.textContent =
-        "Online";
-
-      esp.className =
-        "green";
-
-    }
-
-
-    if(connectionAlert){
-
-      connectionAlert.textContent =
-        "MQTT متصل";
-
-    }
-
-  }else{
-
-    if(dot)
-      dot.textContent = "●";
-
-
-    if(state)
-      state.textContent =
-        "النظام غير متصل";
-
-
-    if(sub)
-      sub.textContent =
-        "ESP32 • MQTT • Offline";
-
-
-    if(status){
-
-      status.textContent =
-        "غير متصل";
-
-      status.className =
-        "";
-
-    }
-
-
-    if(esp){
-
-      esp.textContent =
-        "Offline";
-
-      esp.className =
-        "";
-
-    }
-
-
-    if(connectionAlert){
-
-      connectionAlert.textContent =
-        "MQTT غير متصل";
-
-    }
-
-  }
-
-}
-
-
-/* =========================================================
-   MQTT CONNECT
-========================================================= */
-
-function connectMQTT(){
-
-  if(
-    typeof mqtt ===
-    "undefined"
-  ){
-
-    showHydroToast(
-      "مكتبة MQTT غير موجودة"
+    Boolean(
+      HydroUI.devices[device]
     );
-
-    return;
-
-  }
-
-
-  const username =
-    el("mqttUser")?.value ||
-    "hydro01";
-
-
-  const password =
-    el("mqttPass")?.value ||
-    "";
-
-
-  if(!password){
-
-    showHydroToast(
-      "أدخل كلمة مرور HiveMQ أولاً"
-    );
-
-    return;
-
-  }
-
-
-  if(mqttClient){
-
-    try{
-
-      mqttClient.end(
-        true
-      );
-
-    }catch(error){}
-
-  }
-
-
-  setMQTTStatus(
-    false
-  );
-
-
-  showHydroToast(
-    "جاري الاتصال بـ HiveMQ..."
-  );
-
-
-  const clientId =
-    "hydro-gh001-" +
-    Math.random()
-      .toString(16)
-      .substring(2,10);
-
-
-  mqttClient =
-    mqtt.connect(
-      MQTT_WS_URL,
-      {
-
-        clientId:
-          clientId,
-
-        username:
-          username,
-
-        password:
-          password,
-
-        clean:
-          true,
-
-        connectTimeout:
-          10000,
-
-        reconnectPeriod:
-          5000,
-
-        keepalive:
-          30,
-
-        protocol:
-          "wss"
-
-      }
-    );
-
-
-  mqttClient.on(
-    "connect",
-    () => {
-
-      console.log(
-        "MQTT CONNECTED"
-      );
-
-
-      setMQTTStatus(
-        true
-      );
-
-
-      mqttClient.subscribe(
-        [
-          TOPIC_TELEMETRY,
-          TOPIC_STATUS,
-          TOPIC_ALERTS,
-          `${TOPIC_ACTUATORS}/+/state`
-        ],
-        error => {
-
-          if(error){
-
-            console.error(
-              "MQTT subscribe error",
-              error
-            );
-
-          }else{
-
-            console.log(
-              "MQTT subscriptions active"
-            );
-
-          }
-
-        }
-      );
-
-
-      showHydroToast(
-        "تم الاتصال بـ HiveMQ"
-      );
-
-    }
-  );
-
-
-  mqttClient.on(
-    "message",
-    (
-      topic,
-      message
-    ) => {
-
-      handleMQTTMessage(
-        topic,
-        message.toString()
-      );
-
-    }
-  );
-
-
-  mqttClient.on(
-    "error",
-    error => {
-
-      console.error(
-        "MQTT error:",
-        error
-      );
-
-      setMQTTStatus(
-        false
-      );
-
-    }
-  );
-
-
-  mqttClient.on(
-    "close",
-    () => {
-
-      console.log(
-        "MQTT connection closed"
-      );
-
-      setMQTTStatus(
-        false
-      );
-
-    }
-  );
-
-
-  mqttClient.on(
-    "offline",
-    () => {
-
-      setMQTTStatus(
-        false
-      );
-
-    }
-  );
-
-}
-
-
-/* =========================================================
-   MQTT MESSAGE
-========================================================= */
-
-function handleMQTTMessage(
-  topic,
-  payload
-){
-
-  console.log(
-    "MQTT:",
-    topic,
-    payload
-  );
-
-
-  let data = {};
-
-
-  try{
-
-    data =
-      JSON.parse(
-        payload
-      );
-
-  }catch(error){
-
-    console.warn(
-      "Invalid JSON MQTT payload"
-    );
-
-    return;
-
-  }
-
-
-  if(
-    topic ===
-    TOPIC_TELEMETRY
-  ){
-
-    processTelemetry(
-      data
-    );
-
-    return;
-
-  }
-
-
-  if(
-    topic ===
-    TOPIC_STATUS
-  ){
-
-    processStatus(
-      data
-    );
-
-    return;
-
-  }
-
-
-  if(
-    topic ===
-    TOPIC_ALERTS
-  ){
-
-    processMQTTAlert(
-      data
-    );
-
-    return;
-
-  }
-
-
-  if(
-    topic.startsWith(
-      `${TOPIC_ACTUATORS}/`
-    )
-  ){
-
-    processActuatorState(
-      topic,
-      data
-    );
-
-  }
-
-}
-
-
-/* =========================================================
-   TELEMETRY
-========================================================= */
-
-function processTelemetry(
-  data
-){
-
-  latestData =
-    {
-
-      ...latestData,
-
-      ...data
-
-    };
-
-
-  const temperature =
-    numberValue(
-      data.airTemperature ??
-      data.temperature
-    );
-
-
-  const humidity =
-    numberValue(
-      data.airHumidity ??
-      data.humidity
-    );
-
-
-  const waterTemperature =
-    numberValue(
-      data.waterTemperature ??
-      data.waterTemp
-    );
-
-
-  const rawLevel =
-    numberValue(
-      data.waterLevel ??
-      data.level
-    );
-
-
-  const level =
-    convertLevelToPercent(
-      rawLevel
-    );
-
-
-  const ec =
-    numberValue(
-      data.ec ??
-      data.EC
-    );
-
-
-  const ph =
-    numberValue(
-      data.ph ??
-      data.pH
-    );
-
-
-  if(
-    temperature !==
-    null
-  ){
-
-    latestData.airTemperature =
-      temperature;
-
-  }
-
-
-  if(
-    humidity !==
-    null
-  ){
-
-    latestData.airHumidity =
-      humidity;
-
-  }
-
-
-  if(
-    waterTemperature !==
-    null
-  ){
-
-    latestData.waterTemperature =
-      waterTemperature;
-
-  }
-
-
-  if(
-    level !==
-    null
-  ){
-
-    latestData.waterLevel =
-      level;
-
-  }
-
-
-  if(
-    ec !==
-    null
-  ){
-
-    latestData.ec =
-      ec;
-
-  }
-
-
-  if(
-    ph !==
-    null
-  ){
-
-    latestData.ph =
-      ph;
-
-  }
-
-
-  /*
-    Actuator states can be sent
-    inside telemetry as well.
-  */
-
-  copyActuatorData(
-    data
-  );
-
-
-  updateDashboard();
-
-
-  addHistoryPoint();
-
-
-  checkAutomaticAlerts();
-
-}
-
-
-/* =========================================================
-   NUMBER
-========================================================= */
-
-function numberValue(
-  value
-){
-
-  if(
-    value ===
-    null ||
-    value ===
-    undefined ||
-    value ===
-    ""
-  ){
-
-    return null;
-
-  }
-
-
-  const number =
-    Number(value);
-
-
-  if(
-    Number.isNaN(
-      number
-    )
-  ){
-
-    return null;
-
-  }
-
-
-  return number;
-
-}
-
-
-/* =========================================================
-   LEVEL CONVERSION
-========================================================= */
-
-function convertLevelToPercent(
-  value
-){
-
-  if(value === null)
-    return null;
-
-
-  /*
-    If ESP32 already sends percentage,
-    use it directly.
-  */
-
-  if(
-    value >= 0 &&
-    value <= 100
-  ){
-
-    return value;
-
-  }
-
-
-  /*
-    Your previous ESP32 data showed values
-    around 351/353.
-
-    Until the exact ST045 calibration range
-    is supplied, we do not invent a physical
-    calibration.
-
-    Therefore values >100 are kept as a
-    percentage-like value only if possible.
-  */
-
-  return Math.max(
-    0,
-    Math.min(
-      100,
-      value
-    )
-  );
-
-}
-
-
-/* =========================================================
-   ACTUATOR DATA
-========================================================= */
-
-function copyActuatorData(
-  data
-){
-
-  const keys =
-    Object.keys(
-      data
-    );
-
-
-  for(
-    const key of keys
-  ){
-
-    const value =
-      data[key];
-
-
-    if(
-      key.toLowerCase()
-        .includes("fan")
-    ){
-
-      latestData[key] =
-        value;
-
-    }
-
-
-    if(
-      key.toLowerCase()
-        .includes("pump")
-    ){
-
-      latestData[key] =
-        value;
-
-    }
-
-
-    if(
-      key ===
-      "padCooling"
-    ){
-
-      latestData.padCooling =
-        value;
-
-    }
-
-  }
-
-}
-
-
-/* =========================================================
-   UPDATE DASHBOARD
-========================================================= */
-
-function updateDashboard(){
-
-  const temp =
-    latestData.airTemperature;
-
-
-  const hum =
-    latestData.airHumidity;
-
-
-  const wt =
-    latestData.waterTemperature;
-
-
-  const level =
-    latestData.waterLevel;
-
-
-  const ec =
-    latestData.ec;
-
-
-  const ph =
-    latestData.ph;
-
-
-  if(temp !== null){
-
-    setText(
-      "temp",
-      temp.toFixed(1) +
-      "°C"
-    );
-
-    setText(
-      "cv",
-      temp.toFixed(1) +
-      "°C"
-    );
-
-    setText(
-      "systemTemp",
-      temp.toFixed(1) +
-      "°C"
-    );
-
-  }
-
-
-  if(hum !== null){
-
-    setText(
-      "hum",
-      hum.toFixed(0) +
-      "%"
-    );
-
-    setText(
-      "dataHum",
-      hum.toFixed(0) +
-      "%"
-    );
-
-  }
-
-
-  if(wt !== null){
-
-    setText(
-      "wt",
-      wt.toFixed(1) +
-      "°C"
-    );
-
-    setText(
-      "dataWt",
-      wt.toFixed(1) +
-      "°C"
-    );
-
-    setText(
-      "systemWaterTemp",
-      wt.toFixed(1) +
-      "°C"
-    );
-
-  }
-
-
-  if(level !== null){
-
-    setText(
-      "level",
-      level.toFixed(0) +
-      "%"
-    );
-
-    setText(
-      "systemTank",
-      "الخزان " +
-      level.toFixed(0) +
-      "%"
-    );
-
-  }
-
-
-  if(ec !== null){
-
-    setText(
-      "ec",
-      ec.toFixed(2)
-    );
-
-    setText(
-      "dataEc",
-      ec.toFixed(2)
-    );
-
-  }
-
-
-  if(ph !== null){
-
-    setText(
-      "ph",
-      ph.toFixed(2)
-    );
-
-    setText(
-      "dataPh",
-      ph.toFixed(2)
-    );
-
-  }
-
-
-  updateStatusTexts();
-
-
-  updateSystem();
-
-}
-
-
-/* =========================================================
-   STATUS TEXTS
-========================================================= */
-
-function updateStatusTexts(){
-
-  const temp =
-    latestData.airTemperature;
-
-
-  const level =
-    latestData.waterLevel;
-
-
-  if(temp !== null){
-
-    const warning =
-      Number(
-        localStorage.getItem(
-          "hydro_warning_temp"
-        ) ||
-        30
-      );
-
-
-    const critical =
-      Number(
-        localStorage.getItem(
-          "hydro_critical_temp"
-        ) ||
-        33
-      );
-
-
-    if(
-      temp >=
-      critical
-    ){
-
-      setText(
-        "tempStatus",
-        "حرارة حرجة"
-      );
-
-    }
-
-    else if(
-      temp >=
-      warning
-    ){
-
-      setText(
-        "tempStatus",
-        "حرارة مرتفعة"
-      );
-
-    }
-
-    else{
-
-      setText(
-        "tempStatus",
-        "طبيعية"
-      );
-
-    }
-
-  }
-
-
-  if(level !== null){
-
-    const warning =
-      Number(
-        localStorage.getItem(
-          "hydro_warning_level"
-        ) ||
-        20
-      );
-
-
-    const critical =
-      Number(
-        localStorage.getItem(
-          "hydro_critical_level"
-        ) ||
-        10
-      );
-
-
-    if(
-      level <=
-      critical
-    ){
-
-      setText(
-        "levelStatus",
-        "مستوى حرج"
-      );
-
-    }
-
-    else if(
-      level <=
-      warning
-    ){
-
-      setText(
-        "levelStatus",
-        "مستوى منخفض"
-      );
-
-    }
-
-    else{
-
-      setText(
-        "levelStatus",
-        "طبيعي"
-      );
-
-    }
-
-  }
-
-}
-
-
-/* =========================================================
-   SYSTEM
-========================================================= */
-
-function updateSystem(){
-
-  const fanOn =
-    Number(
-      latestData.fan1 ||
-      latestData.fan2 ||
-      0
-    );
-
-
-  const pumpOn =
-    Number(
-      latestData.pump1 ||
-      latestData.pump2 ||
-      latestData.pump3 ||
-      latestData.pump4 ||
-      0
-    );
-
-
-  const padOn =
-    Number(
-      latestData.padCooling ||
-      0
-    );
-
-
-  setText(
-    "systemFan",
-    fanOn
-      ? "المروحة ON"
-      : "المروحة OFF"
-  );
-
-
-  setText(
-    "systemFanState",
-    fanOn
-      ? "تعمل"
-      : "متوقفة"
-  );
-
-
-  setText(
-    "systemPump",
-    pumpOn
-      ? "المضخة ON"
-      : "المضخة OFF"
-  );
-
-
-  setText(
-    "systemPumpMode",
-    hydroMode
-  );
-
-
-  updateSwitch(
-    "pumpSwitch",
-    Boolean(pumpOn)
-  );
-
-
-  updateSwitch(
-    "fanSwitch",
-    Boolean(fanOn)
-  );
-
-
-  updateSwitch(
-    "padSwitch",
-    Boolean(padOn)
-  );
-
-
-  updateSwitch(
-    "systemPadSwitch",
-    Boolean(padOn)
-  );
-
-}
-
-
-/* =========================================================
-   SWITCH UI
-========================================================= */
-
-function updateSwitch(
-  id,
-  state
-){
-
-  const button =
-    el(id);
-
-
-  if(!button)
-    return;
 
 
   button.classList.toggle(
@@ -1316,3347 +205,1122 @@ function updateSwitch(
     state
   );
 
-}
+});
 
-
-/* =========================================================
-   MQTT CONTROL
-========================================================= */
-
-function sendControl(
-  device,
-  state
-){
-
-  if(
-    !mqttClient ||
-    !mqttConnected
-  ){
-
-    showHydroToast(
-      "MQTT غير متصل"
-    );
-
-    return false;
-
-  }
-
-
-  const topic =
-    `${TOPIC_CONTROL}/${device}/set`;
-
-
-  const payload =
-    JSON.stringify({
-
-      state:
-        state ? 1 : 0,
-
-      mode:
-        hydroMode,
-
-      greenhouse:
-        "GH001",
-
-      timestamp:
-        Date.now()
-
-    });
-
-
-  mqttClient.publish(
-    topic,
-    payload,
-    {
-      qos: 1,
-      retain: false
-    },
-    error => {
-
-      if(error){
-
-        console.error(
-          "MQTT publish error",
-          error
-        );
-
-        showHydroToast(
-          "فشل إرسال الأمر"
-        );
-
-      }else{
-
-        console.log(
-          "CONTROL:",
-          topic,
-          payload
-        );
-
-      }
-
-    }
-  );
-
-
-  return true;
+updateDeviceModes();
 
 }
 
+function initDeviceSwitches() {
 
-/* =========================================================
-   DEVICE SWITCH
-========================================================= */
-
-function setupSwitches(){
-
-  const switches =
-    document.querySelectorAll(
-      ".sw[data-device]"
-    );
-
-
-  switches.forEach(
-    button => {
-
-      button.addEventListener(
-        "click",
-        () => {
-
-          const device =
-            button.dataset.device;
-
-
-          const state =
-            !button.classList.contains(
-              "on"
-            );
-
-
-          /*
-            UI is updated optimistically.
-          */
-
-          updateSwitch(
-            button.id,
-            state
-          );
-
-
-          if(
-            sendControl(
-              device,
-              state
-            )
-          ){
-
-            showHydroToast(
-              `${button.dataset.name || device}: ${
-                state
-                  ? "تشغيل"
-                  : "إيقاف"
-              }`
-            );
-
-          }
-
-        }
-      );
-
-    }
-  );
-
-}
-
-
-/* =========================================================
-   MODE
-========================================================= */
-
-function setupMode(){
-
-  const button =
-    el("mode");
-
-
-  if(!button)
-    return;
-
+document
+.querySelectorAll(
+'.sw[data-device]'
+)
+.forEach(button => {
 
   button.addEventListener(
     "click",
     () => {
 
-      hydroMode =
-        hydroMode ===
-        "AUTO"
-          ? "MANUAL"
-          : "AUTO";
+      const device =
+        button.dataset.device;
+
+      if (!device)
+        return;
 
 
-      button.textContent =
-        hydroMode;
-
-
-      setText(
-        "homeMode",
-        hydroMode
-      );
-
-
-      setText(
-        "pumpMode",
-        hydroMode
-      );
-
-
-      setText(
-        "fanMode",
-        hydroMode
-      );
-
-
-      setText(
-        "padMode",
-        hydroMode
-      );
-
-
-      setText(
-        "systemPumpMode",
-        hydroMode
-      );
-
-
-      if(
-        mqttClient &&
-        mqttConnected
-      ){
-
-        mqttClient.publish(
-
-          `${TOPIC_CONTROL}/mode/set`,
-
-          JSON.stringify({
-
-            mode:
-              hydroMode
-
-          }),
-
-          {
-            qos: 1,
-            retain: false
-          }
-
+      const current =
+        Boolean(
+          HydroUI.devices[device]
         );
 
-      }
 
-
-      showHydroToast(
-        "الوضع: " +
-        hydroMode
+      setDeviceState(
+        device,
+        !current
       );
 
     }
   );
 
+});
+
+updateDeviceSwitches();
+
 }
 
-
 /* =========================================================
-   MQTT STATUS MESSAGE
+DEVICE MODE DISPLAY
 ========================================================= */
 
-function processStatus(
-  data
-){
+function updateDeviceModes() {
 
-  const online =
-    data.online ??
-    data.connected ??
-    data.status === "online";
+const pumpMode =
+$("pumpMode");
+
+const fanMode =
+$("fanMode");
+
+const padMode =
+$("padMode");
+
+const systemPumpMode =
+$("systemPumpMode");
+
+if (pumpMode)
+pumpMode.textContent =
+HydroUI.mode;
+
+if (fanMode)
+fanMode.textContent =
+HydroUI.mode;
+
+if (padMode)
+padMode.textContent =
+HydroUI.mode;
+
+if (systemPumpMode)
+systemPumpMode.textContent =
+HydroUI.mode;
+
+const systemPump =
+$("systemPump");
+
+if (systemPump) {
+
+systemPump.textContent =
+  `المضخة ${
+    HydroUI.devices.pump
+      ? "ON"
+      : "OFF"
+  }`;
+
+}
+
+const systemFan =
+$("systemFan");
+
+if (systemFan) {
+
+systemFan.textContent =
+  HydroUI.devices.fan
+    ? "المروحة ON"
+    : "المروحة OFF";
+
+}
+
+}
+
+/* =========================================================
+AUTO / MANUAL MODE
+========================================================= */
+
+function updateModeButton() {
+
+const modeButton =
+$("mode");
+
+const homeMode =
+$("homeMode");
+
+if (modeButton)
+modeButton.textContent =
+HydroUI.mode;
+
+if (homeMode)
+homeMode.textContent =
+HydroUI.mode;
+
+updateDeviceModes();
+
+}
+
+function initMode() {
+
+const button =
+$("mode");
+
+if (!button)
+return;
+
+button.addEventListener(
+"click",
+() => {
+
+  HydroUI.mode =
+    HydroUI.mode === "AUTO"
+      ? "MANUAL"
+      : "AUTO";
 
 
-  if(
-    online
-  ){
+  updateModeButton();
 
-    setMQTTStatus(
-      true
+
+  showToast(
+    `الوضع: ${HydroUI.mode}`
+  );
+
+}
+
+);
+
+updateModeButton();
+
+}
+
+/* =========================================================
+RANGE INPUTS
+========================================================= */
+
+const rangeMap = {
+
+fan: "fo",
+
+crit: "fc",
+
+pad: "po",
+
+low: "lo",
+
+critical: "lc"
+
+};
+
+function initRanges() {
+
+Object.entries(rangeMap)
+.forEach(([inputId, outputId]) => {
+
+  const input =
+    $(inputId);
+
+  const output =
+    $(outputId);
+
+
+  if (!input || !output)
+    return;
+
+
+  function update() {
+
+    output.textContent =
+      input.value;
+
+
+    updateSettingValue(
+      inputId,
+      input.value
     );
 
   }
 
 
-  if(
-    data.mode
-  ){
-
-    hydroMode =
-      String(
-        data.mode
-      ).toUpperCase();
-
-
-    setText(
-      "homeMode",
-      hydroMode
-    );
-
-  }
-
-}
-
-
-/* =========================================================
-   ACTUATOR STATE
-========================================================= */
-
-function processActuatorState(
-  topic,
-  data
-){
-
-  const parts =
-    topic.split("/");
-
-
-  const device =
-    parts[
-      parts.length - 2
-    ];
-
-
-  const state =
-    Number(
-      data.state ??
-      data.value ??
-      data.on ??
-      0
-    );
-
-
-  if(
-    device ===
-    "pump"
-  ){
-
-    latestData.pump1 =
-      state;
-
-  }
-
-
-  if(
-    device ===
-    "fan"
-  ){
-
-    latestData.fan1 =
-      state;
-
-  }
-
-
-  if(
-    device ===
-    "pad_cooling"
-  ){
-
-    latestData.padCooling =
-      state;
-
-  }
-
-
-  updateDashboard();
-
-}
-
-
-/* =========================================================
-   MQTT ALERT
-========================================================= */
-
-function processMQTTAlert(
-  data
-){
-
-  const title =
-    data.title ||
-    "تنبيه Hydro Farm";
-
-
-  const body =
-    data.body ||
-    data.message ||
-    "يوجد تنبيه جديد";
-
-
-  const severity =
-    data.severity ||
-    "INFO";
-
-
-  addHydroAlert(
-    title,
-    body,
-    severity
+  input.addEventListener(
+    "input",
+    update
   );
 
 
-  /*
-    MQTT alert is local.
-    FCM notification is handled by
-    Firebase when the backend sends FCM.
-  */
+  update();
+
+});
 
 }
 
+function updateSettingValue(
+inputId,
+value
+) {
+
+const number =
+Number(value);
+
+switch (inputId) {
+
+case "fan":
+  HydroUI.settings.fanWarning =
+    number;
+  break;
+
+case "crit":
+  HydroUI.settings.fanCritical =
+    number;
+  break;
+
+case "pad":
+  HydroUI.settings.padTemperature =
+    number;
+  break;
+
+case "low":
+  HydroUI.settings.levelWarning =
+    number;
+  break;
+
+case "critical":
+  HydroUI.settings.levelCritical =
+    number;
+  break;
+
+}
+
+}
 
 /* =========================================================
-   LOCAL ALERT
+RANGE BUTTONS
 ========================================================= */
 
-function addHydroAlert(
-  title,
-  body,
-  seve
-  if(!list) return;
+function initRangeButtons() {
 
-  const article = document.createElement('article');
+const buttons =
+document.querySelectorAll(
+".ranges button"
+);
 
-  article.className = `alert ${cls}`;
+buttons.forEach(button => {
 
-  article.innerHTML = `
-    🔔
-    <div>
-      <b>${title}</b>
-      <small>${small}</small>
-    </div>
-  `;
+button.addEventListener(
+  "click",
+  () => {
 
-  list.prepend(article);
-}
+    buttons.forEach(item => {
 
-
-function notification(title,body){
-
-  if(!('Notification' in window)) return;
-
-  if(Notification.permission === 'granted'){
-
-    try{
-
-      new Notification(title,{
-        body,
-        icon:'icons/icon-192.png',
-        tag:'hydrofarm-alert'
-      });
-
-    }catch(e){}
-
-  }
-}
-
-
-function
-  handleRemoteAlert(data){
-
-  if(!data) return;
-
-  const severity =
-    String(data.severity || 'WARNING').toUpperCase();
-
-  const cls =
-    severity === 'HIGH' ||
-    severity === 'CRITICAL'
-      ? 'danger'
-      : 'warning';
-
-  const title =
-    data.message ||
-    data.type ||
-    'تنبيه من البيت المحمي';
-
-  const detail =
-    data.value !== undefined
-      ? `القيمة: ${data.value}${
-          data.limit !== undefined
-            ? ' — الحد '+data.limit
-            : ''
-        }`
-      : 'تنبيه MQTT';
-
-  addAlert(cls,title,detail);
-
-  notification(
-    `Hydro Farm — ${severity}`,
-    `${title} ${detail}`
-  );
-}
-
-
-/* =========================================================
-   CHART
-========================================================= */
-
-function chart(id,v){
-
-  const c = $('#'+id);
-
-  if(!c) return;
-
-  const ctx = c.getContext('2d');
-
-  function draw(){
-
-    const r = c.getBoundingClientRect();
-
-    const d = window.devicePixelRatio || 1;
-
-    c.width = r.width*d;
-    c.height = r.height*d;
-
-    ctx.setTransform(d,0,0,d,0,0);
-
-    const w = r.width;
-    const h = r.height;
-
-    const p = 10;
-
-    let min = Math.min(...v)-1;
-    let max = Math.max(...v)+1;
-
-    if(max === min) max = min+1;
-
-    ctx.strokeStyle = '#dce8e5';
-
-    for(let i=0;i<4;i++){
-
-      const y =
-        p+i*(h-2*p)/3;
-
-      ctx.beginPath();
-      ctx.moveTo(p,y);
-      ctx.lineTo(w-p,y);
-      ctx.stroke();
-
-    }
-
-    ctx.strokeStyle = '#0b7a70';
-    ctx.lineWidth = 3;
-
-    ctx.beginPath();
-
-    v.forEach((z,i)=>{
-
-      const x =
-        p+i*(w-2*p)/(v.length-1);
-
-      const y =
-        h-p-
-        (z-min)/(max-min)*(h-2*p);
-
-      if(i)
-        ctx.lineTo(x,y);
-      else
-        ctx.moveTo(x,y);
+      item.classList.remove(
+        "sel"
+      );
 
     });
 
-    ctx.stroke();
 
-  }
-
-  draw();
-
-  addEventListener('resize',draw);
-}
-
-
-chart('c1',[25,26,27,29,31,30,28,29,32,31,29,28.4]);
-chart('c2',[24,26,28,31,34,32,30,29,28,27,29,28]);
-chart('c3',[95,91,87,84,80,76,72,70,74,78,80,78]);
-
-
-/* =========================================================
-   MQTT CONFIGURATION
-========================================================= */
-
-const MQTT_HOST =
-  '99580666d99a4632b4a1d5087e22d494.s1.eu.hivemq.cloud';
-
-const MQTT_WS_PORT = 8884;
-
-const GREENHOUSE_ID = 'GH001';
-
-
-const TOPICS = {
-
-  root:
-    `greenhouse/${GREENHOUSE_ID}`,
-
-  telemetry:
-    `greenhouse/${GREENHOUSE_ID}/telemetry`,
-
-  sensors:
-    `greenhouse/${GREENHOUSE_ID}/sensors/#`,
-
-  actuatorState:
-    `greenhouse/${GREENHOUSE_ID}/actuators/+/state`,
-
-  alerts:
-    `greenhouse/${GREENHOUSE_ID}/alerts`,
-
-  status:
-    `greenhouse/${GREENHOUSE_ID}/status`,
-
-  config:
-    `greenhouse/${GREENHOUSE_ID}/config/#`,
-
-  control:
-    actuator =>
-      `greenhouse/${GREENHOUSE_ID}/control/${actuator}/set`,
-
-  automation:
-    device =>
-      `greenhouse/${GREENHOUSE_ID}/automation/${device}/set`
-
-};
-
-
-let mqttClient = null;
-
-
-const mqttState = {
-
-  temp:null,
-  hum:null,
-  wt:null,
-  level:null,
-  ph:null,
-  ec:null,
-
-  pump:false,
-  fan:false,
-  pad:false,
-
-  auto:true
-
-};
-
-
-/* =========================================================
-   UI VALUE UPDATE
-========================================================= */
-
-function setText(id,v,suffix=''){
-
-  const e = document.getElementById(id);
-
-  if(
-    e &&
-    v !== null &&
-    v !== undefined &&
-    Number.isFinite(Number(v))
-  ){
-
-    e.textContent =
-      `${v}${suffix}`;
-
-  }
-
-}
-
-
-/* =========================================================
-   CONNECTION STATUS
-========================================================= */
-
-function setConnection(online){
-
-  const dot = $('#mqttDot');
-  const state = $('#mqttState');
-  const sub = $('#mqttSub');
-
-  if(dot)
-    dot.textContent = online ? '●' : '○';
-
-  if(state)
-    state.textContent =
-      online
-        ? 'النظام متصل'
-        : 'النظام غير متصل';
-
-  if(sub)
-    sub.textContent =
-      online
-        ? 'ESP32 • MQTT • Online'
-        : 'ESP32 • MQTT • Offline';
-
-
-  const mqttStatus = $('#mqttStatus');
-
-  if(mqttStatus){
-
-    mqttStatus.textContent =
-      online
-        ? 'متصل'
-        : 'غير متصل';
-
-    mqttStatus.className =
-      online ? 'green' : '';
-
-  }
-
-
-  const espStatus = $('#espStatus');
-
-  if(espStatus){
-
-    espStatus.textContent =
-      online
-        ? 'Online'
-        : 'Offline';
-
-    espStatus.className =
-      online ? 'green' : '';
-
-  }
-
-
-  const alertConnection =
-    $('#alertConnection');
-
-  if(alertConnection){
-
-    alertConnection.textContent =
-      online
-        ? 'HiveMQ Cloud • GH001 • متصل'
-        : 'HiveMQ Cloud • GH001 • غير متصل';
-
-  }
-
-}
-
-
-/* =========================================================
-   UPDATE DEVICE STATES
-========================================================= */
-
-function updateSwitch(id,on){
-
-  const e = $('#'+id);
-
-  if(!e) return;
-
-  e.classList.toggle('on',!!on);
-
-}
-
-
-function
-  updateDeviceState(device,state){
-
-  const on =
-    String(state).toUpperCase() === 'ON';
-
-  if(device === 'pump'){
-
-    mqttState.pump = on;
-
-    updateSwitch('pumpSwitch',on);
-
-    const e = $('#systemPump');
-
-    if(e)
-      e.textContent =
-        `المضخة ${on?'ON':'OFF'}`;
-
-  }
-
-
-  if(device === 'fan'){
-
-    mqttState.fan = on;
-
-    updateSwitch('fanSwitch',on);
-
-    const e = $('#systemFanState');
-
-    if(e)
-      e.textContent =
-        on
-          ? 'تشغيل'
-          : 'إيقاف';
-
-  }
-
-
-  if(
-    device === 'pad' ||
-    device === 'pad_cooling'
-  ){
-
-    mqttState.pad = on;
-
-    updateSwitch('padSwitch',on);
-    updateSwitch('systemPadSwitch',on);
-
-  }
-
-}
-
-
-/* =========================================================
-   SENSOR DATA
-========================================================= */
-
-function updateSensor(topic,msg){
-
-  let data = null;
-
-  try{
-
-    data = JSON.parse(msg);
-
-  }catch(e){
-
-    data = null;
-
-  }
-
-
-  /* ============================================
-     TELEMETRY JSON
-  ============================================ */
-
-  if(
-    data &&
-    typeof data === 'object' &&
-    topic === TOPICS.telemetry
-  ){
-
-    /* Temperature */
-
-    if(Number.isFinite(Number(data.temperature))){
-
-      mqttState.temp =
-        Number(data.temperature);
-
-      setText(
-        'temp',
-        mqttState.temp.toFixed(1),
-        '°C'
-      );
-
-      setText(
-        'cv',
-        mqttState.temp.toFixed(1),
-        '°C'
-      );
-
-      setText(
-        'systemTemp',
-        mqttState.temp.toFixed(1),
-        '°C'
-      );
-
-    }
-
-
-    /* Humidity */
-
-    if(Number.isFinite(Number(data.humidity))){
-
-      mqttState.hum =
-        Number(data.humidity);
-
-      setText(
-        'hum',
-        mqttState.hum.toFixed(0),
-        '%'
-      );
-
-      setText(
-        'dataHum',
-        mqttState.hum.toFixed(0),
-        '%'
-      );
-
-    }
-
-
-    /* Water temperature */
-
-    if(
-      Number.isFinite(
-        Number(data.water_temperature)
-      )
-    ){
-
-      mqttState.wt =
-        Number(data.water_temperature);
-
-      setText(
-        'wt',
-        mqttState.wt.toFixed(1),
-        '°C'
-      );
-
-      setText(
-        'dataWt',
-        mqttState.wt.toFixed(1),
-        '°C'
-      );
-
-      setText(
-        'systemWaterTemp',
-        mqttState.wt.toFixed(1),
-        '°C'
-      );
-
-    }
-
-
-    /* Water level */
-
-    if(
-      Number.isFinite(
-        Number(data.water_level)
-      )
-    ){
-
-      mqttState.level =
-        Number(data.water_level);
-
-      setText(
-        'level',
-        mqttState.level.toFixed(0),
-        '%'
-      );
-
-      setText(
-        'systemTank',
-        `الخزان ${mqttState.level.toFixed(0)}%`
-      );
-
-    }
-
-
-    /* pH */
-
-    if(Number.isFinite(Number(data.ph))){
-
-      mqttState.ph =
-        Number(data.ph);
-
-      setText(
-        'ph',
-        mqttState.ph.toFixed(2)
-      );
-
-      setText(
-        'dataPh',
-        mqttState.ph.toFixed(2)
-      );
-
-    }
-
-
-    /* EC */
-
-    if(Number.isFinite(Number(data.ec))){
-
-      mqttState.ec =
-        Number(data.ec);
-
-      setText(
-        'ec',
-        mqttState.ec.toFixed(2)
-      );
-
-      setText(
-        'dataEc',
-        mqttState.ec.toFixed(2)
-      );
-
-    }
-
-
-    /* Pump */
-
-    if(data.pump !== undefined)
-      updateDeviceState(
-        'pump',
-        data.pump ? 'ON':'OFF'
-      );
-
-
-    if(data.pump1 !== undefined)
-      updateDeviceState(
-        'pump',
-        data.pump1 ? 'ON':'OFF'
-      );
-
-
-    /* Fan */
-
-    if(data.fan !== undefined)
-      updateDeviceState(
-        'fan',
-        data.fan ? 'ON':'OFF'
-      );
-
-
-    if(data.fan1 !== undefined)
-      updateDeviceState(
-        'fan',
-        data.fan1 ? 'ON':'OFF'
-      );
-
-
-    /* Auto */
-
-    if(data.auto !== undefined){
-
-      mqttState.auto =
-        !!data.auto;
-
-      const mode =
-        mqttState.auto
-          ? 'AUTO'
-          : 'MANUAL';
-
-      if($('#homeMode'))
-        $('#homeMode').textContent = mode;
-
-      if($('#mode'))
-        $('#mode').textContent = mode;
-
-    }
-
-
-    checkAlerts(data);
-
-    return;
-
-  }
-
-
-  /* ============================================
-     ACTUATOR STATE
-  ============================================ */
-
-  if(
-    topic.startsWith(
-      `greenhouse/${GREENHOUSE_ID}/actuators/`
-    )
-  ){
-
-    const parts =
-      topic.split('/');
-
-    const device =
-      parts[3];
-
-    try{
-
-      const stateData =
-        JSON.parse(msg);
-
-      updateDeviceState(
-        device,
-        stateData.state
-      );
-
-    }catch(e){
-
-      updateDeviceState(
-        device,
-        msg
-      );
-
-    }
-
-    return;
-
-  }
-
-
-  /* ============================================
-     ALERT
-  ============================================ */
-
-  if(topic === TOPICS.alerts){
-
-    if(data)
-      handleRemoteAlert(data);
-
-    return;
-
-  }
-
-
-  /* ============================================
-     INDIVIDUAL SENSOR TOPICS
-  ============================================ */
-
-  const v =
-    Number(String(msg).trim());
-
-  if(!Number.isFinite(v))
-    return;
-
-
-  if(topic.includes('/temperature')){
-
-    mqttState.temp = v;
-
-    setText('temp',v.toFixed(1),'°C');
-    setText('cv',v.toFixed(1),'°C');
-    setText('systemTemp',v.toFixed(1),'°C');
-
-  }
-
-  else if(topic.includes('/humidity')){
-
-    mqttState.hum = v;
-
-    setText('hum',v.toFixed(0),'%');
-    setText('dataHum',v.toFixed(0),'%');
-
-  }
-
-  else if(topic.includes('/water_temperature')){
-
-    mqttState.wt = v;
-
-    setText('wt',v.toFixed(1),'°C');
-    setText('dataWt',v.toFixed(1),'°C');
-    setText('systemWaterTemp',v.toFixed(1),'°C');
-
-  }
-
-  else if(topic.includes('/water_level')){
-
-    mqttState.level = v;
-
-    setText('level',v.toFixed(0),'%');
-    setText('systemTank',`الخزان ${v.toFixed(0)}%`);
-
-  }
-
-  else if(topic.includes('/ph')){
-
-    mqttState.ph = v;
-
-    setText('ph',v.toFixed(2));
-    setText('dataPh',v.toFixed(2));
-
-  }
-
-  else if(topic.includes('/ec')){
-
-    mqttState.ec = v;
-
-    setText('ec',v.toFixed(2));
-    setText('dataEc',v.toFixed(2));
-
-  }
-
-}
-
-
-/* =========================================================
-   ALERT CHECK
-========================================================= */
-
-function checkAlerts(d){
-
-  const t =
-    Number(d.temperature);
-
-  const l =
-    Number(d.water_level);
-
-  const warning =
-    Number($('#fan')?.value || 30);
-
-  const critical =
-    Number($('#crit')?.value || 33);
-
-  const low =
-    Number($('#low')?.value || 20);
-
-  const criticalLow =
-    Number($('#critical')?.value || 10);
-
-
-  if(
-    Number.isFinite(t) &&
-    t >= critical
-  ){
-
-    notification(
-      'Hydro Farm — حرارة حرجة',
-      `درجة الحرارة ${t}°C تجاوزت الحد ${critical}°C`
-    );
-
-  }
-
-  else if(
-    Number.isFinite(t) &&
-    t >= warning
-  ){
-
-    notification(
-      'Hydro Farm — حرارة مرتفعة',
-      `درجة الحرارة ${t}°C تجاوزت حد التحذير ${warning}°C`
-    );
-
-  }
-
-
-  if(
-    Number.isFinite(l) &&
-    l <= criticalLow
-  ){
-
-    notification(
-      'Hydro Farm — مستوى ماء حرج',
-      `مستوى الخزان ${l}%`
-    );
-
-  }
-
-  else if(
-    Number.isFinite(l) &&
-    l <= low
-  ){
-
-    notification(
-      'Hydro Farm — مستوى الماء منخفض',
-      `مستوى الخزان ${l}%`
-    );
-
-  }
-
-}
-
-
-/* =========================================================
-   MQTT CONNECT
-========================================================= */
-
-function connectMQTT(){
-
-  if(typeof mqtt === 'undefined'){
-
-    toast('مكتبة MQTT لم تُحمّل');
-
-    return;
-
-  }
-
-
-  const user =
-    $('#mqttUser')?.value.trim() ||
-    localStorage.getItem('hydro_mqtt_user') ||
-    'hydro01';
-
-
-  const passField =
-    $('#mqttPass');
-
-  const typed =
-    passField?.value || '';
-
-  const pass =
-    typed ||
-    localStorage.getItem(
-      'hydro_mqtt_password'
-    ) ||
-    '';
-
-
-  if(!pass){
-
-    toast(
-      'أدخل كلمة مرور MQTT مرة واحدة'
-    );
-
-    page('settings');
-
-    return;
-
-  }
-
-
-  /* Save credentials locally */
-
-  localStorage.setItem(
-    'hydro_mqtt_user',
-    user
-  );
-
-  localStorage.setItem(
-    'hydro_mqtt_password',
-    pass
-  );
-
-  localStorage.setItem(
-    'hydro_mqtt_autoconnect',
-    '1'
-  );
-
-
-  if(
-    'Notification' in window &&
-    Notification.permission === 'default'
-  ){
-
-    Notification.requestPermission()
-      .catch(()=>{});
-
-  }
-
-
-  /* Close previous connection */
-
-  if(mqttClient){
-
-    try{
-      mqttClient.end(true);
-    }catch(e){}
-
-    mqttClient = null;
-
-  }
-
-
-  /* Connect */
-
-  mqttClient =
-    mqtt.connect(
-      `wss://${MQTT_HOST}:${MQTT_WS_PORT}/mqtt`,
-      {
-        username:user,
-        password:pass,
-
-        clientId:
-          'hydrofarm_GH001_' +
-          Math.random()
-            .toString(16)
-            .slice(2),
-
-        clean:true,
-
-        reconnectPeriod:3000,
-
-        connectTimeout:10000,
-
-        keepalive:30
-      }
+    button.classList.add(
+      "sel"
     );
 
 
-  /* ============================================
-     CONNECTED
-  ============================================ */
-
-  mqttClient.on('connect',()=>{
-
-    setConnection(true);
-
-    toast(
-      'تم الاتصال بـ HiveMQ GH001'
-    );
-
-
-    /*
-      Subscribe to the entire GH001 tree.
-
-      Permission:
-      greenhouse/GH001/#
-    */
-
-    mqttClient.subscribe(
-      `greenhouse/${GREENHOUSE_ID}/#`,
-      {qos:0},
-      err => {
-
-        if(err){
-
-          console.error(
-            'MQTT subscribe error:',
-            err
-          );
-
-          toast(
-            'فشل الاشتراك في GH001'
-          );
-
-        }else{
-
-          console.log(
-            'MQTT subscribed:',
-            `greenhouse/${GREENHOUSE_ID}/#`
-          );
-
-        }
-
-      }
-    );
-
-  });
-
-
-  /* ============================================
-     MESSAGE
-  ============================================ */
-
-  mqttClient.on(
-    'message',
-    (topic,payload)=>{
-
-      console.log(
-        'MQTT RX:',
-        topic,
-        payload.toString()
-      );
-
-      updateSensor(
-        topic,
-        payload.toString()
-      );
-
-    }
-  );
-
-
-  mqttClient.on(
-    'reconnect',
-    ()=>{
-      setConnection(false);
-    }
-  );
-
-
-  mqttClient.on(
-    'offline',
-    ()=>{
-      setConnection(false);
-    }
-  );
-
-
-  mqttClient.on(
-    'close',
-    ()=>{
-      setConnection(false);
-    }
-  );
-
-
-  mqttClient.on(
-    'error',
-    err => {
-
-      console.error(
-        'MQTT ERROR:',
-        err
-      );
-
-      setConnection(false);
-
-      toast(
-        'خطأ في اتصال MQTT'
-      );
-
-    }
-  );
-
-}
-
-
-/* =========================================================
-   PUBLISH CONTROL
-========================================================= */
-
-function publishControl(
-  actuator,
-  payload
-){
-
-  if(
-    !mqttClient ||
-    !mqttClient.connected
-  ){
-
-    toast(
-      'MQTT غير متصل'
-    );
-
-    return false;
-
-  }
-
-
-  const topic =
-    TOPICS.control(actuator);
-
-
-  console.log(
-    'MQTT TX:',
-    topic,
-    payload
-  );
-
-
-  mqttClient.publish(
-    topic,
-    JSON.stringify(payload),
-    {
-      qos:0,
-      retain:false
-    }
-  );
-
-  return true;
-
-}
-
-
-function publishSimpleControl(
-  actuator,
-  on
-){
-
-  return publishControl(
-    actuator,
-    {
-      command:
-        on ? 'ON':'OFF',
-
-      request_id:
-        'hf_' +
-        Date.now().toString(36)
-    }
-  );
-
-}
-
-
-/* =========================================================
-   UI SWITCHES
-========================================================= */
-
-$$('.sw').forEach(
-  x => {
-
-    x.addEventListener(
-      'click',
-      event => {
-
-        /*
-          Prevent duplicate handlers.
-        */
-
-        event.stopPropagation();
-
-
-        x.classList.toggle(
-          'on'
-        );
-
-
-        const on =
-          x.classList.contains('on');
-
-
-        const device =
-          x.dataset.device ||
-          (
-            x.dataset.name === 'المضخة'
-              ? 'pump'
-              : x.dataset.name === 'المروحة'
-                ? 'fan'
-                : 'pad_cooling'
-          );
-
-
-        const ok =
-          publishSimpleControl(
-            device === 'pad_cooling'
-              ? 'pad'
-              : device,
-            on
-          );
-
-
-        if(ok){
-
-          toast(
-            `${x.dataset.name}: ` +
-            (on ? 'تشغيل':'إيقاف')
-          );
-
-        }
-
-      }
+    showToast(
+      `الفترة: ${button.textContent}`
     );
 
   }
 );
 
+});
+
+}
 
 /* =========================================================
-   MQTT BUTTON
+SAVE SETTINGS
 ========================================================= */
 
-$('#mqttConnect')
-  ?.addEventListener(
-    'click',
-    connectMQTT
+function saveSettings() {
+
+try {
+
+localStorage.setItem(
+  "hydroFarmSettings",
+  JSON.stringify(
+    HydroUI.settings
+  )
+);
+
+localStorage.setItem(
+  "hydroFarmMode",
+  HydroUI.mode
+);
+
+
+showToast(
+  "تم حفظ الإعدادات"
+);
+
+} catch(error) {
+
+console.error(
+  "Settings save error:",
+  error
+);
+
+showToast(
+  "تعذر حفظ الإعدادات"
+);
+
+}
+
+}
+
+/* =========================================================
+LOAD SETTINGS
+========================================================= */
+
+function loadSettings() {
+
+try {
+
+const saved =
+  localStorage.getItem(
+    "hydroFarmSettings"
   );
 
 
-/* =========================================================
-   SAVE
-========================================================= */
+if (saved) {
 
-$('#save')
-  ?.addEventListener(
-    'click',
-    ()=>{
-
-      const p =
-        $('#mqttPass')?.value || '';
-/* =========================================================
-   HYDRO FARM
-   MQTT + Dashboard + Alerts + Controls
-========================================================= */
+  const data =
+    JSON.parse(saved);
 
 
-/* =========================================================
-   MQTT CONFIG
-========================================================= */
+  HydroUI.settings = {
+    ...HydroUI.settings,
+    ...data
+  };
 
-const MQTT_HOST =
-  "99580666d99a4632b4a1d5087e22d494.s1.eu.hivemq.cloud";
-
-const MQTT_PORT =
-  8884;
-
-const MQTT_WS_URL =
-  `wss://${MQTT_HOST}:${MQTT_PORT}/mqtt`;
+}
 
 
-/* =========================================================
-   MQTT TOPICS
-========================================================= */
-
-const TOPIC_TELEMETRY =
-  "greenhouse/GH001/telemetry";
-
-const TOPIC_STATUS =
-  "greenhouse/GH001/status";
-
-const TOPIC_ALERTS =
-  "greenhouse/GH001/alerts";
-
-const TOPIC_CONTROL =
-  "greenhouse/GH001/control";
-
-const TOPIC_ACTUATORS =
-  "greenhouse/GH001/actuators";
+const savedMode =
+  localStorage.getItem(
+    "hydroFarmMode"
+  );
 
 
-/* =========================================================
-   GLOBAL STATE
-========================================================= */
+if (
+  savedMode === "AUTO" ||
+  savedMode === "MANUAL"
+) {
 
-let mqttClient =
-  null;
+  HydroUI.mode =
+    savedMode;
 
+}
 
-let mqttConnected =
-  false;
+} catch(error) {
 
+console.error(
+  "Settings load error:",
+  error
+);
 
-let hydroMode =
-  "AUTO";
+}
 
+applySettingsToInputs();
 
-let latestData = {
+updateModeButton();
 
-  waterLevel:
-    null,
+}
 
-  airTemperature:
-    null,
+function applySettingsToInputs() {
 
-  airHumidity:
-    null,
+const values = {
 
-  waterTemperature:
-    null,
+fan:
+  HydroUI.settings.fanWarning,
 
-  ec:
-    null,
+crit:
+  HydroUI.settings.fanCritical,
 
-  ph:
-    null,
+pad:
+  HydroUI.settings.padTemperature,
 
-  fan1:
-    0,
+low:
+  HydroUI.settings.levelWarning,
 
-  fan2:
-    0,
-
-  pump1:
-    0,
-
-  pump2:
-    0,
-
-  pump3:
-    0,
-
-  pump4:
-    0,
-
-  padCooling:
-    0,
-
-  auto:
-    1
+critical:
+  HydroUI.settings.levelCritical
 
 };
 
+Object.entries(values)
+.forEach(([id, value]) => {
 
-/* =========================================================
-   HISTORY
-========================================================= */
+  const input = $(id);
 
-const temperatureHistory =
-  [];
-
-const levelHistory =
-  [];
+  const output =
+    $(rangeMap[id]);
 
 
-const MAX_HISTORY =
-  60;
+  if (input)
+    input.value = value;
 
 
-/* =========================================================
-   DOM HELPERS
-========================================================= */
+  if (output)
+    output.textContent = value;
 
-function el(id){
-
-  return document.getElementById(id);
+});
 
 }
 
+/* =========================================================
+SAVE BUTTON
+========================================================= */
 
-function setText(
-  id,
-  value
-){
+function initSaveButton() {
 
-  const element =
-    el(id);
+const button =
+$("save");
 
-  if(element){
+if (!button)
+return;
 
-    element.textContent =
-      value;
-
-  }
+button.addEventListener(
+"click",
+saveSettings
+);
 
 }
 
-
 /* =========================================================
-   TOAST
+CLEAR ALERTS
 ========================================================= */
 
-function showHydroToast(
-  message
-){
+function initClearAlerts() {
 
-  const toast =
-    el("toast");
+const button =
+$("clear");
 
+if (!button)
+return;
 
-  if(!toast)
+button.addEventListener(
+"click",
+() => {
+
+  const list =
+    $("alertsList");
+
+  if (!list)
     return;
 
 
-  toast.textContent =
-    message;
+  list.innerHTML = `
 
+    <article class="alert good">
 
-  toast.classList.add(
-    "show"
-  );
+      🟢
 
+      <div>
 
-  setTimeout(
-    () => {
+        <b>
+          لا توجد تنبيهات
+        </b>
 
-      toast.classList.remove(
-        "show"
-      );
+        <small>
+          النظام يعمل بشكل طبيعي
+        </small>
 
-    },
-    2500
-  );
+      </div>
 
-}
+    </article>
 
+  `;
 
-window.showHydroToast =
-  showHydroToast;
 
-
-/* =========================================================
-   MQTT STATUS UI
-========================================================= */
-
-function setMQTTStatus(
-  connected
-){
-
-  mqttConnected =
-    connected;
-
-
-  const dot =
-    el("mqttDot");
-
-  const state =
-    el("mqttState");
-
-  const sub =
-    el("mqttSub");
-
-  const status =
-    el("mqttStatus");
-
-  const esp =
-    el("espStatus");
-
-  const connectionAlert =
-    el("alertConnection");
-
-
-  if(connected){
-
-    if(dot)
-      dot.textContent = "●";
-
-
-    if(state)
-      state.textContent =
-        "النظام متصل";
-
-
-    if(sub)
-      sub.textContent =
-        "ESP32 • MQTT • Online";
-
-
-    if(status){
-
-      status.textContent =
-        "متصل";
-
-      status.className =
-        "green";
-
-    }
-
-
-    if(esp){
-
-      esp.textContent =
-        "Online";
-
-      esp.className =
-        "green";
-
-    }
-
-
-    if(connectionAlert){
-
-      connectionAlert.textContent =
-        "MQTT متصل";
-
-    }
-
-  }else{
-
-    if(dot)
-      dot.textContent = "●";
-
-
-    if(state)
-      state.textContent =
-        "النظام غير متصل";
-
-
-    if(sub)
-      sub.textContent =
-        "ESP32 • MQTT • Offline";
-
-
-    if(status){
-
-      status.textContent =
-        "غير متصل";
-
-      status.className =
-        "";
-
-    }
-
-
-    if(esp){
-
-      esp.textContent =
-        "Offline";
-
-      esp.className =
-        "";
-
-    }
-
-
-    if(connectionAlert){
-
-      connectionAlert.textContent =
-        "MQTT غير متصل";
-
-    }
-
-  }
-
-}
-
-
-/* =========================================================
-   MQTT CONNECT
-========================================================= */
-
-function connectMQTT(){
-
-  if(
-    typeof mqtt ===
-    "undefined"
-  ){
-
-    showHydroToast(
-      "مكتبة MQTT غير موجودة"
-    );
-
-    return;
-
-  }
-
-
-  const username =
-    el("mqttUser")?.value ||
-    "hydro01";
-
-
-  const password =
-    el("mqttPass")?.value ||
-    "";
-
-
-  if(!password){
-
-    showHydroToast(
-      "أدخل كلمة مرور HiveMQ أولاً"
-    );
-
-    return;
-
-  }
-
-
-  if(mqttClient){
-
-    try{
-
-      mqttClient.end(
-        true
-      );
-
-    }catch(error){}
-
-  }
-
-
-  setMQTTStatus(
-    false
-  );
-
-
-  showHydroToast(
-    "جاري الاتصال بـ HiveMQ..."
-  );
-
-
-  const clientId =
-    "hydro-gh001-" +
-    Math.random()
-      .toString(16)
-      .substring(2,10);
-
-
-  mqttClient =
-    mqtt.connect(
-      MQTT_WS_URL,
-      {
-
-        clientId:
-          clientId,
-
-        username:
-          username,
-
-        password:
-          password,
-
-        clean:
-          true,
-
-        connectTimeout:
-          10000,
-
-        reconnectPeriod:
-          5000,
-
-        keepalive:
-          30,
-
-        protocol:
-          "wss"
-
-      }
-    );
-
-
-  mqttClient.on(
-    "connect",
-    () => {
-
-      console.log(
-        "MQTT CONNECTED"
-      );
-
-
-      setMQTTStatus(
-        true
-      );
-
-
-      mqttClient.subscribe(
-        [
-          TOPIC_TELEMETRY,
-          TOPIC_STATUS,
-          TOPIC_ALERTS,
-          `${TOPIC_ACTUATORS}/+/state`
-        ],
-        error => {
-
-          if(error){
-
-            console.error(
-              "MQTT subscribe error",
-              error
-            );
-
-          }else{
-
-            console.log(
-              "MQTT subscriptions active"
-            );
-
-          }
-
-        }
-      );
-
-
-      showHydroToast(
-        "تم الاتصال بـ HiveMQ"
-      );
-
-    }
-  );
-
-
-  mqttClient.on(
-    "message",
-    (
-      topic,
-      message
-    ) => {
-
-      handleMQTTMessage(
-        topic,
-        message.toString()
-      );
-
-    }
-  );
-
-
-  mqttClient.on(
-    "error",
-    error => {
-
-      console.error(
-        "MQTT error:",
-        error
-      );
-
-      setMQTTStatus(
-        false
-      );
-
-    }
-  );
-
-
-  mqttClient.on(
-    "close",
-    () => {
-
-      console.log(
-        "MQTT connection closed"
-      );
-
-      setMQTTStatus(
-        false
-      );
-
-    }
-  );
-
-
-  mqttClient.on(
-    "offline",
-    () => {
-
-      setMQTTStatus(
-        false
-      );
-
-    }
+  showToast(
+    "تم مسح التنبيهات"
   );
 
 }
 
+);
+
+}
 
 /* =========================================================
-   MQTT MESSAGE
+BELL
 ========================================================= */
 
-function handleMQTTMessage(
-  topic,
-  payload
-){
+function initBell() {
 
-  console.log(
-    "MQTT:",
-    topic,
-    payload
-  );
+const bell =
+$("bell");
 
+if (!bell)
+return;
 
-  let data = {};
+bell.addEventListener(
+"click",
+() => {
 
-
-  try{
-
-    data =
-      JSON.parse(
-        payload
-      );
-
-  }catch(error){
-
-    console.warn(
-      "Invalid JSON MQTT payload"
+  const alertButton =
+    document.querySelector(
+      'nav button[data-page="alerts"]'
     );
 
-    return;
 
-  }
+  if (alertButton)
+    alertButton.click();
 
+}
 
-  if(
-    topic ===
-    TOPIC_TELEMETRY
-  ){
+);
 
-    processTelemetry(
-      data
-    );
+}
 
-    return;
+/* =========================================================
+DEMO SENSOR DATA
 
-  }
+هذه البيانات مؤقتة فقط لاختبار الواجهة.
 
+في المرحلة التالية سيتم استبدالها
+ببيانات MQTT القادمة من ESP32.
+========================================================= */
 
-  if(
-    topic ===
-    TOPIC_STATUS
-  ){
+function updateDemoData() {
 
-    processStatus(
-      data
-    );
+const data = {
 
-    return;
+temperature:
+  28.4 +
+  Math.sin(Date.now() / 10000) * 1.2,
 
-  }
+humidity:
+  68,
 
+waterTemperature:
+  25.8,
 
-  if(
-    topic ===
-    TOPIC_ALERTS
-  ){
+waterLevel:
+  82,
 
-    processMQTTAlert(
-      data
-    );
+ec:
+  1.42,
 
-    return;
+ph:
+  6.1
 
-  }
+};
 
+HydroUI.sensorData = data;
 
-  if(
-    topic.startsWith(
-      `${TOPIC_ACTUATORS}/`
-    )
-  ){
+updateSensorDisplay();
 
-    processActuatorState(
-      topic,
-      data
-    );
+}
 
-  }
+function updateSensorDisplay() {
+
+const data =
+HydroUI.sensorData;
+
+if (data.temperature !== null) {
+
+setText(
+  "temp",
+  `${data.temperature.toFixed(1)}°C`
+);
+
+setText(
+  "cv",
+  `${data.temperature.toFixed(1)}°C`
+);
+
+setText(
+  "systemTemp",
+  `${data.temperature.toFixed(1)}°C`
+);
+
+}
+
+if (data.humidity !== null) {
+
+setText(
+  "hum",
+  `${data.humidity.toFixed(0)}%`
+);
+
+setText(
+  "dataHum",
+  `${data.humidity.toFixed(0)}%`
+);
+
+}
+
+if (data.waterTemperature !== null) {
+
+setText(
+  "wt",
+  `${data.waterTemperature.toFixed(1)}°C`
+);
+
+setText(
+  "dataWt",
+  `${data.waterTemperature.toFixed(1)}°C`
+);
+
+setText(
+  "systemWaterTemp",
+  `${data.waterTemperature.toFixed(1)}°C`
+);
+
+}
+
+if (data.waterLevel !== null) {
+
+setText(
+  "level",
+  `${data.waterLevel.toFixed(0)}%`
+);
+
+setText(
+  "systemTank",
+  `الخزان ${data.waterLevel.toFixed(0)}%`
+);
+
+}
+
+if (data.ec !== null) {
+
+setText(
+  "ec",
+  data.ec.toFixed(2)
+);
+
+setText(
+  "dataEc",
+  data.ec.toFixed(2)
+);
+
+}
+
+if (data.ph !== null) {
+
+setText(
+  "ph",
+  data.ph.toFixed(2)
+);
+
+setText(
+  "dataPh",
+  data.ph.toFixed(2)
+);
+
+}
+
+updateSensorStatuses();
+
+}
+
+function setText(id, value) {
+
+const element = $(id);
+
+if (element)
+element.textContent = value;
+
+}
+
+/* =========================================================
+SENSOR STATUS
+========================================================= */
+
+function updateSensorStatuses() {
+
+const temp =
+HydroUI.sensorData.temperature;
+
+const level =
+HydroUI.sensorData.waterLevel;
+
+if (temp !== null) {
+
+let status =
+  "طبيعي";
+
+if (
+  temp >=
+  HydroUI.settings.fanCritical
+) {
+
+  status =
+    "حرارة مرتفعة";
+
+} else if (
+  temp >=
+  HydroUI.settings.fanWarning
+) {
+
+  status =
+    "تحذير الحرارة";
 
 }
 
 
-/* =========================================================
-   TELEMETRY
-========================================================= */
+setText(
+  "tempStatus",
+  status
+);
 
-function processTelemetry(
-  data
-){
+}
 
-  latestData =
-    {
+if (level !== null) {
 
-      ...latestData,
-
-      ...data
-
-    };
+let status =
+  "طبيعي";
 
 
-  const temperature =
-    numberValue(
-      data.airTemperature ??
-      data.temperature
-    );
+if (
+  level <=
+  HydroUI.settings.levelCritical
+) {
 
+  status =
+    "مستوى حرج";
 
-  const humidity =
-    numberValue(
-      data.airHumidity ??
-      data.humidity
-    );
+} else if (
+  level <=
+  HydroUI.settings.levelWarning
+) {
 
-
-  const waterTemperature =
-    numberValue(
-      data.waterTemperature ??
-      data.waterTemp
-    );
-
-
-  const rawLevel =
-    numberValue(
-      data.waterLevel ??
-      data.level
-    );
-
-
-  const level =
-    convertLevelToPercent(
-      rawLevel
-    );
-
-
-  const ec =
-    numberValue(
-      data.ec ??
-      data.EC
-    );
-
-
-  const ph =
-    numberValue(
-      data.ph ??
-      data.pH
-    );
-
-
-  if(
-    temperature !==
-    null
-  ){
-
-    latestData.airTemperature =
-      temperature;
-
-  }
-
-
-  if(
-    humidity !==
-    null
-  ){
-
-    latestData.airHumidity =
-      humidity;
-
-  }
-
-
-  if(
-    waterTemperature !==
-    null
-  ){
-
-    latestData.waterTemperature =
-      waterTemperature;
-
-  }
-
-
-  if(
-    level !==
-    null
-  ){
-
-    latestData.waterLevel =
-      level;
-
-  }
-
-
-  if(
-    ec !==
-    null
-  ){
-
-    latestData.ec =
-      ec;
-
-  }
-
-
-  if(
-    ph !==
-    null
-  ){
-
-    latestData.ph =
-      ph;
-
-  }
-
-
-  /*
-    Actuator states can be sent
-    inside telemetry as well.
-  */
-
-  copyActuatorData(
-    data
-  );
-
-
-  updateDashboard();
-
-
-  addHistoryPoint();
-
-
-  checkAutomaticAlerts();
+  status =
+    "مستوى منخفض";
 
 }
 
 
-/* =========================================================
-   NUMBER
-========================================================= */
-
-function numberValue(
-  value
-){
-
-  if(
-    value ===
-    null ||
-    value ===
-    undefined ||
-    value ===
-    ""
-  ){
-
-    return null;
-
-  }
-
-
-  const number =
-    Number(value);
-
-
-  if(
-    Number.isNaN(
-      number
-    )
-  ){
-
-    return null;
-
-  }
-
-
-  return number;
+setText(
+  "levelStatus",
+  status
+);
 
 }
 
+setText(
+"humStatus",
+"طبيعي"
+);
 
-/* =========================================================
-   LEVEL CONVERSION
-========================================================= */
+setText(
+"wtStatus",
+"طبيعي"
+);
 
-function convertLevelToPercent(
-  value
-){
+setText(
+"ecStatus",
+"mS/cm"
+);
 
-  if(value === null)
-    return null;
-
-
-  /*
-    If ESP32 already sends percentage,
-    use it directly.
-  */
-
-  if(
-    value >= 0 &&
-    value <= 100
-  ){
-
-    return value;
-
-  }
-
-
-  /*
-    Your previous ESP32 data showed values
-    around 351/353.
-
-    Until the exact ST045 calibration range
-    is supplied, we do not invent a physical
-    calibration.
-
-    Therefore values >100 are kept as a
-    percentage-like value only if possible.
-  */
-
-  return Math.max(
-    0,
-    Math.min(
-      100,
-      value
-    )
-  );
+setText(
+"phStatus",
+"طبيعي"
+);
 
 }
 
-
 /* =========================================================
-   ACTUATOR DATA
+SIMPLE DEMO CHART
 ========================================================= */
 
-function copyActuatorData(
-  data
-){
+function drawChart(
+canvasId,
+values,
+min,
+max
+) {
 
-  const keys =
-    Object.keys(
-      data
-    );
+const canvas =
+$(canvasId);
 
+if (!canvas)
+return;
 
-  for(
-    const key of keys
-  ){
+const ctx =
+canvas.getContext("2d");
 
-    const value =
-      data[key];
+if (!ctx)
+return;
 
+const rect =
+canvas.getBoundingClientRect();
 
-    if(
-      key.toLowerCase()
-        .includes("fan")
-    ){
+const dpr =
+window.devicePixelRatio || 1;
 
-      latestData[key] =
-        value;
+canvas.width =
+rect.width * dpr;
 
-    }
+canvas.height =
+rect.height * dpr;
 
+ctx.setTransform(
+dpr,
+0,
+0,
+dpr,
+0,
+0
+);
 
-    if(
-      key.toLowerCase()
-        .includes("pump")
-    ){
+const width =
+rect.width;
 
-      latestData[key] =
-        value;
+const height =
+rect.height;
 
-    }
+ctx.clearRect(
+0,
+0,
+width,
+height
+);
 
+/* Grid */
 
-    if(
-      key ===
-      "padCooling"
-    ){
+ctx.strokeStyle =
+"#e8efed";
 
-      latestData.padCooling =
-        value;
+ctx.lineWidth = 1;
 
-    }
+for (
+let y = 20;
+y < height;
+y += 30
+) {
 
-  }
+ctx.beginPath();
+
+ctx.moveTo(0, y);
+
+ctx.lineTo(width, y);
+
+ctx.stroke();
 
 }
 
+if (
+!values ||
+values.length < 2
+)
+return;
 
-/* =========================================================
-   UPDATE DASHBOARD
-========================================================= */
+const range =
+max - min || 1;
 
-function updateDashboard(){
+ctx.beginPath();
 
-  const temp =
-    latestData.airTemperature;
+values.forEach(
+(value, index) => {
 
-
-  const hum =
-    latestData.airHumidity;
-
-
-  const wt =
-    latestData.waterTemperature;
-
-
-  const level =
-    latestData.waterLevel;
+  const x =
+    index *
+    (width / (values.length - 1));
 
 
-  const ec =
-    latestData.ec;
+  const normalized =
+    (value - min) /
+    range;
 
 
-  const ph =
-    latestData.ph;
+  const y =
+    height -
+    normalized * height;
 
 
-  if(temp !== null){
-
-    setText(
-      "temp",
-      temp.toFixed(1) +
-      "°C"
-    );
-
-    setText(
-      "cv",
-      temp.toFixed(1) +
-      "°C"
-    );
-
-    setText(
-      "systemTemp",
-      temp.toFixed(1) +
-      "°C"
-    );
-
-  }
-
-
-  if(hum !== null){
-
-    setText(
-      "hum",
-      hum.toFixed(0) +
-      "%"
-    );
-
-    setText(
-      "dataHum",
-      hum.toFixed(0) +
-      "%"
-    );
-
-  }
-
-
-  if(wt !== null){
-
-    setText(
-      "wt",
-      wt.toFixed(1) +
-      "°C"
-    );
-
-    setText(
-      "dataWt",
-      wt.toFixed(1) +
-      "°C"
-    );
-
-    setText(
-      "systemWaterTemp",
-      wt.toFixed(1) +
-      "°C"
-    );
-
-  }
-
-
-  if(level !== null){
-
-    setText(
-      "level",
-      level.toFixed(0) +
-      "%"
-    );
-
-    setText(
-      "systemTank",
-      "الخزان " +
-      level.toFixed(0) +
-      "%"
-    );
-
-  }
-
-
-  if(ec !== null){
-
-    setText(
-      "ec",
-      ec.toFixed(2)
-    );
-
-    setText(
-      "dataEc",
-      ec.toFixed(2)
-    );
-
-  }
-
-
-  if(ph !== null){
-
-    setText(
-      "ph",
-      ph.toFixed(2)
-    );
-
-    setText(
-      "dataPh",
-      ph.toFixed(2)
-    );
-
-  }
-
-
-  updateStatusTexts();
-
-
-  updateSystem();
+  if (index === 0)
+    ctx.moveTo(x, y);
+  else
+    ctx.lineTo(x, y);
 
 }
 
+);
 
-/* =========================================================
-   STATUS TEXTS
-========================================================= */
+ctx.strokeStyle =
+"#0b7a70";
 
-function updateStatusTexts(){
+ctx.lineWidth = 2;
 
-  const temp =
-    latestData.airTemperature;
+ctx.stroke();
 
+/* Current point */
 
-  const level =
-    latestData.waterLevel;
+const last =
+values[values.length - 1];
 
+const lastX =
+width;
 
-  if(temp !== null){
+const lastY =
+height -
+((last - min) / range) *
+height;
 
-    const warning =
-      Number(
-        localStorage.getItem(
-          "hydro_warning_temp"
-        ) ||
-        30
-      );
+ctx.beginPath();
 
+ctx.arc(
+lastX,
+lastY,
+4,
+0,
+Math.PI * 2
+);
 
-    const critical =
-      Number(
-        localStorage.getItem(
-          "hydro_critical_temp"
-        ) ||
-        33
-      );
+ctx.fillStyle =
+"#0b7a70";
 
-
-    if(
-      temp >=
-      critical
-    ){
-
-      setText(
-        "tempStatus",
-        "حرارة حرجة"
-      );
-
-    }
-
-    else if(
-      temp >=
-      warning
-    ){
-
-      setText(
-        "tempStatus",
-        "حرارة مرتفعة"
-      );
-
-    }
-
-    else{
-
-      setText(
-        "tempStatus",
-        "طبيعية"
-      );
-
-    }
-
-  }
-
-
-  if(level !== null){
-
-    const warning =
-      Number(
-        localStorage.getItem(
-          "hydro_warning_level"
-        ) ||
-        20
-      );
-
-
-    const critical =
-      Number(
-        localStorage.getItem(
-          "hydro_critical_level"
-        ) ||
-        10
-      );
-
-
-    if(
-      level <=
-      critical
-    ){
-
-      setText(
-        "levelStatus",
-        "مستوى حرج"
-      );
-
-    }
-
-    else if(
-      level <=
-      warning
-    ){
-
-      setText(
-        "levelStatus",
-        "مستوى منخفض"
-      );
-
-    }
-
-    else{
-
-      setText(
-        "levelStatus",
-        "طبيعي"
-      );
-
-    }
-
-  }
+ctx.fill();
 
 }
 
+function drawDemoCharts() {
 
-/* =========================================================
-   SYSTEM
-========================================================= */
+const temperatureValues = [];
 
-function updateSystem(){
+const levelValues = [];
 
-  const fanOn =
-    Number(
-      latestData.fan1 ||
-      latestData.fan2 ||
-      0
-    );
+for (
+let i = 0;
+i < 24;
+i++
+) {
 
-
-  const pumpOn =
-    Number(
-      latestData.pump1 ||
-      latestData.pump2 ||
-      latestData.pump3 ||
-      latestData.pump4 ||
-      0
-    );
+temperatureValues.push(
+  26 +
+  Math.sin(i / 3) * 3 +
+  Math.random()
+);
 
 
-  const padOn =
-    Number(
-      latestData.padCooling ||
-      0
-    );
-
-
-  setText(
-    "systemFan",
-    fanOn
-      ? "المروحة ON"
-      : "المروحة OFF"
-  );
-
-
-  setText(
-    "systemFanState",
-    fanOn
-      ? "تعمل"
-      : "متوقفة"
-  );
-
-
-  setText(
-    "systemPump",
-    pumpOn
-      ? "المضخة ON"
-      : "المضخة OFF"
-  );
-
-
-  setText(
-    "systemPumpMode",
-    hydroMode
-  );
-
-
-  updateSwitch(
-    "pumpSwitch",
-    Boolean(pumpOn)
-  );
-
-
-  updateSwitch(
-    "fanSwitch",
-    Boolean(fanOn)
-  );
-
-
-  updateSwitch(
-    "padSwitch",
-    Boolean(padOn)
-  );
-
-
-  updateSwitch(
-    "systemPadSwitch",
-    Boolean(padOn)
-  );
+levelValues.push(
+  75 +
+  Math.sin(i / 4) * 5 +
+  Math.random() * 3
+);
 
 }
 
+drawChart(
+"c1",
+temperatureValues,
+20,
+40
+);
 
-/* =========================================================
-   SWITCH UI
-========================================================= */
+drawChart(
+"c2",
+temperatureValues,
+20,
+40
+);
 
-function updateSwitch(
-  id,
-  state
-){
-
-  const button =
-    el(id);
-
-
-  if(!button)
-    return;
-
-
-  button.classList.toggle(
-    "on",
-    state
-  );
+drawChart(
+"c3",
+levelValues,
+0,
+100
+);
 
 }
 
-
 /* =========================================================
-   MQTT CONTROL
+MQTT PLACEHOLDER
+
+لا يتم الاتصال بـ HiveMQ في المرحلة 1.
+
+سنضع MQTT الحقيقي هنا في المرحلة التالية.
 ========================================================= */
 
-function sendControl(
+window.HydroMQTT = {
+
+connected: false,
+
+connect() {
+
+console.log(
+  "MQTT will be enabled in the next phase."
+);
+
+showToast(
+  "MQTT سيتم تفعيله في المرحلة التالية"
+);
+
+},
+
+disconnect() {
+
+console.log(
+  "MQTT disconnect placeholder"
+);
+
+},
+
+publish(device, state) {
+
+console.log(
+  "MQTT publish placeholder:",
   device,
   state
-){
-
-  if(
-    !mqttClient ||
-    !mqttConnected
-  ){
-
-    showHydroToast(
-      "MQTT غير متصل"
-    );
-
-    return false;
-
-  }
-
-
-  const topic =
-    `${TOPIC_CONTROL}/${device}/set`;
-
-
-  const payload =
-    JSON.stringify({
-
-      state:
-        state ? 1 : 0,
-
-      mode:
-        hydroMode,
-
-      greenhouse:
-        "GH001",
-
-      timestamp:
-        Date.now()
-
-    });
-
-
-  mqttClient.publish(
-    topic,
-    payload,
-    {
-      qos: 1,
-      retain: false
-    },
-    error => {
-
-      if(error){
-
-        console.error(
-          "MQTT publish error",
-          error
-        );
-
-        showHydroToast(
-          "فشل إرسال الأمر"
-        );
-
-      }else{
-
-        console.log(
-          "CONTROL:",
-          topic,
-          payload
-        );
-
-      }
-
-    }
-  );
-
-
-  return true;
+);
 
 }
 
+};
 
 /* =========================================================
-   DEVICE SWITCH
+INITIALIZE
 ========================================================= */
 
-function setupSwitches(){
+function initHydroFarmUI() {
 
-  const switches =
-    document.querySelectorAll(
-      ".sw[data-device]"
-    );
+console.log(
+"Hydro Farm UI — Phase 1"
+);
 
+loadSettings();
 
-  switches.forEach(
-    button => {
+initNavigation();
 
-      button.addEventListener(
-        "click",
-        () => {
+initDeviceSwitches();
 
-          const device =
-            button.dataset.device;
+initMode();
 
+initRanges();
 
-          const state =
-            !button.classList.contains(
-              "on"
-            );
+initRangeButtons();
 
+initSaveButton();
 
-          /*
-            UI is updated optimistically.
-          */
+initClearAlerts();
 
-          updateSwitch(
-            button.id,
-            state
-          );
+initBell();
 
+updateDemoData();
 
-          if(
-            sendControl(
-              device,
-              state
-            )
-          ){
+drawDemoCharts();
 
-            showHydroToast(
-              `${button.dataset.name || device}: ${
-                state
-                  ? "تشغيل"
-                  : "إيقاف"
-              }`
-            );
+window.addEventListener(
+"resize",
+drawDemoCharts
+);
 
-          }
+/*
+Demo refresh.
 
-        }
-      );
+سيتم حذفه عندما نربط MQTT الحقيقي.
 
-    }
-  );
+*/
+
+setInterval(
+updateDemoData,
+5000
+);
 
 }
 
-
 /* =========================================================
-   MODE
+START
 ========================================================= */
 
-function setupMode(){
+if (
+document.readyState ===
+"loading"
+) {
 
-  const button =
-    el("mode");
+document.addEventListener(
+"DOMContentLoaded",
+initHydroFarmUI
+);
 
+} else {
 
-  if(!button)
-    return;
+initHydroFarmUI();
 
-
-  button.addEventListener(
-    "click",
-    () => {
-
-      hydroMode =
-        hydroMode ===
-        "AUTO"
-          ? "MANUAL"
-          : "AUTO";
-
-
-      button.textContent =
-        hydroMode;
-
-
-      setText(
-        "homeMode",
-        hydroMode
-      );
-
-
-      setText(
-        "pumpMode",
-        hydroMode
-      );
-
-
-      setText(
-        "fanMode",
-        hydroMode
-      );
-
-
-      setText(
-        "padMode",
-        hydroMode
-      );
-
-
-      setText(
-        "systemPumpMode",
-        hydroMode
-      );
-
-
-      if(
-        mqttClient &&
-        mqttConnected
-      ){
-
-        mqttClient.publish(
-
-          `${TOPIC_CONTROL}/mode/set`,
-
-          JSON.stringify({
-
-            mode:
-              hydroMode
-
-          }),
-
-          {
-            qos: 1,
-            retain: false
-          }
-
-        );
-
-      }
-
-
-      showHydroToast(
-        "الوضع: " +
-        hydroMode
-      );
-
-    }
-  );
-
-}
-
-
-/* =========================================================
-   MQTT STATUS MESSAGE
-========================================================= */
-
-function processStatus(
-  data
-){
-
-  const online =
-    data.online ??
-    data.connected ??
-    data.status === "online";
-
-
-  if(
-    online
-  ){
-
-    setMQTTStatus(
-      true
-    );
-
-  }
-
-
-  if(
-    data.mode
-  ){
-
-    hydroMode =
-      String(
-        data.mode
-      ).toUpperCase();
-
-
-    setText(
-      "homeMode",
-      hydroMode
-    );
-
-  }
-
-}
-
-
-/* =========================================================
-   ACTUATOR STATE
-========================================================= */
-
-function processActuatorState(
-  topic,
-  data
-){
-
-  const parts =
-    topic.split("/");
-
-
-  const device =
-    parts[
-      parts.length - 2
-    ];
-
-
-  const state =
-    Number(
-      data.state ??
-      data.value ??
-      data.on ??
-      0
-    );
-
-
-  if(
-    device ===
-    "pump"
-  ){
-
-    latestData.pump1 =
-      state;
-
-  }
-
-
-  if(
-    device ===
-    "fan"
-  ){
-
-    latestData.fan1 =
-      state;
-
-  }
-
-
-  if(
-    device ===
-    "pad_cooling"
-  ){
-
-    latestData.padCooling =
-      state;
-
-  }
-
-
-  updateDashboard();
-
-}
-
-
-/* =========================================================
-   MQTT ALERT
-========================================================= */
-
-function processMQTTAlert(
-  data
-){
-
-  const title =
-    data.title ||
-    "تنبيه Hydro Farm";
-
-
-  const body =
-    data.body ||
-    data.message ||
-    "يوجد تنبيه جديد";
-
-
-  const severity =
-    data.severity ||
-    "INFO";
-
-
-  addHydroAlert(
-    title,
-    body,
-    severity
-  );
-
-
-  /*
-    MQTT alert is local.
-    FCM notification is handled by
-    Firebase when the backend sends FCM.
-  */
-
-}
-
-
-/* =========================================================
-   LOCAL ALERT
-========================================================= */
-
-function addHydroAlert(
-  title,
-  body,
-  seve
+   }
