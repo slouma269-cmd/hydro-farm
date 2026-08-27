@@ -3,2678 +3,1331 @@
 
 <head>
 
-<meta charset="utf-8">
+  <meta charset="utf-8">
 
-<meta
-  name="viewport"
-  content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  >
 
-<meta
-  name="theme-color"
-  content="#0b7a70">
+  <meta
+    name="theme-color"
+    content="#0b7a70"
+  >
 
-<title>Hydro Farm</title>
+  <meta
+    name="mobile-web-app-capable"
+    content="yes"
+  >
 
+  <meta
+    name="apple-mobile-web-app-capable"
+    content="yes"
+  >
 
-<!-- =====================================================
-     CSS
-===================================================== -->
+  <meta
+    name="apple-mobile-web-app-title"
+    content="Hydro Farm"
+  >
 
-<link
-  rel="stylesheet"
-  href="style.css">
+  <title>Hydro Farm</title>
 
+  <link rel="stylesheet" href="style.css">
 
-<!-- =====================================================
-     PWA MANIFEST
-===================================================== -->
+  <link
+    rel="manifest"
+    href="manifest.json"
+  >
 
-<link
-  rel="manifest"
-  href="manifest.json">
-
-
-<link
-  rel="icon"
-  href="icons/icon-192.png">
-
-
-<meta
-  name="mobile-web-app-capable"
-  content="yes">
-
-
-<meta
-  name="apple-mobile-web-app-capable"
-  content="yes">
-
-
-<meta
-  name="apple-mobile-web-app-title"
-  content="Hydro Farm">
-
-
-<meta
-  name="apple-mobile-web-app-status-bar-style"
-  content="default">
-
-
-<!-- =====================================================
-     MQTT
-===================================================== -->
-
-<script
-  src="https://unpkg.com/mqtt/dist/mqtt.min.js">
-</script>
+  <link
+    rel="icon"
+    href="icons/icon-192.png"
+  >
 
 </head>
 
 
 <body>
 
-
 <div class="app">
 
 
-<!-- =====================================================
-     HEADER
-===================================================== -->
+  <!-- =====================================================
+       HEADER
+  ====================================================== -->
 
-<header>
+  <header>
 
-  <div>
+    <div class="brand">
 
-    <b>
-      🌱 Hydro Farm
-    </b>
-
-    <small>
-      الزراعة المائية الذكية
-    </small>
-
-  </div>
-
-
-  <button
-    id="bell"
-    aria-label="التنبيهات">
-
-    🔔
-
-    <i id="notificationCount">
-      0
-    </i>
-
-  </button>
-
-
-  <button
-    id="installApp"
-    hidden>
-
-    📲 تثبيت التطبيق
-
-  </button>
-
-</header>
-
-
-
-<main>
-
-
-<!-- =====================================================
-     HOME
-===================================================== -->
-
-<section
-  id="home"
-  class="page active">
-
-
-  <div class="status">
-
-
-    <span id="mqttDot">
-      ●
-    </span>
-
-
-    <div>
-
-      <b id="mqttState">
-        النظام غير متصل
-      </b>
-
-
-      <small id="mqttSub">
-        ESP32 • MQTT • Offline
-      </small>
-
-    </div>
-
-
-    <strong id="homeMode">
-      AUTO
-    </strong>
-
-
-  </div>
-
-
-
-  <h2>
-    المراقبة
-  </h2>
-
-
-
-  <div class="cards">
-
-
-    <!-- AIR TEMPERATURE -->
-
-    <div class="card">
-
-      🌡️
+      <b>🌱 Hydro Farm</b>
 
       <small>
-        حرارة الهواء
+        الزراعة المائية الذكية
       </small>
-
-      <b id="temp">
-        --.-°C
-      </b>
-
-      <em id="tempStatus">
-        انتظار البيانات
-      </em>
 
     </div>
 
 
+    <div class="header-actions">
 
-    <!-- HUMIDITY -->
+      <button
+        id="bell"
+        type="button"
+        aria-label="التنبيهات"
+      >
+        🔔
 
-    <div class="card">
+        <i id="notificationCount">
+          0
+        </i>
 
-      💧
-
-      <small>
-        الرطوبة
-      </small>
-
-      <b id="hum">
-        --%
-      </b>
-
-      <em id="humStatus">
-        انتظار البيانات
-      </em>
-
-    </div>
-
-
-
-    <!-- WATER TEMPERATURE -->
-
-    <div class="card">
-
-      🌊
-
-      <small>
-        حرارة الماء
-      </small>
-
-      <b id="wt">
-        --.-°C
-      </b>
-
-      <em id="wtStatus">
-        انتظار البيانات
-      </em>
-
-    </div>
-
-
-
-    <!-- WATER LEVEL -->
-
-    <div class="card">
-
-      💦
-
-      <small>
-        مستوى الخزان
-      </small>
-
-      <b id="level">
-        --%
-      </b>
-
-      <em id="levelStatus">
-        انتظار البيانات
-      </em>
-
-    </div>
-
-
-
-    <!-- EC -->
-
-    <div class="card">
-
-      ⚡
-
-      <small>
-        EC
-      </small>
-
-      <b id="ec">
-        --
-      </b>
-
-      <em id="ecStatus">
-        mS/cm
-      </em>
-
-    </div>
-
-
-
-    <!-- PH -->
-
-    <div class="card">
-
-      🧪
-
-      <small>
-        pH
-      </small>
-
-      <b id="ph">
-        --
-      </b>
-
-      <em id="phStatus">
-        انتظار البيانات
-      </em>
-
-    </div>
-
-
-  </div>
-
-
-
-  <h2>
-    التحكم السريع
-  </h2>
-
-
-
-  <div class="panel">
-
-
-    <!-- PUMP -->
-
-    <div>
-
-      <b>
-        💧 المضخة
-      </b>
-
-      <small id="pumpMode">
-        AUTO
-      </small>
+      </button>
 
 
       <button
-        class="sw on"
-        id="pumpSwitch"
-        data-device="pump"
-        data-name="المضخة">
+        id="installApp"
+        type="button"
+        hidden
+      >
+        📲
       </button>
 
     </div>
 
+  </header>
 
 
-    <!-- FAN -->
 
-    <div>
+  <!-- =====================================================
+       MAIN
+  ====================================================== -->
 
-      <b>
-        🌀 المروحة
-      </b>
+  <main>
 
-      <small id="fanMode">
-        AUTO
-      </small>
 
+    <!-- ===================================================
+         HOME
+    ==================================================== -->
 
-      <button
-        class="sw on"
-        id="fanSwitch"
-        data-device="fan"
-        data-name="المروحة">
-      </button>
+    <section
+      id="home"
+      class="page active"
+    >
 
-    </div>
+      <!-- Connection Status -->
 
+      <div class="status">
 
+        <span
+          id="mqttDot"
+          class="status-dot offline"
+        >
+          ●
+        </span>
 
-    <!-- PAD COOLING -->
+        <div>
 
-    <div>
+          <b id="mqttState">
+            النظام غير متصل
+          </b>
 
-      <b>
-        ❄️ Pad Cooling
-      </b>
+          <small id="mqttSub">
+            ESP32 • MQTT • Offline
+          </small>
 
-      <small id="padMode">
-        AUTO
-      </small>
+        </div>
 
-
-      <button
-        class="sw"
-        id="padSwitch"
-        data-device="pad_cooling"
-        data-name="Pad Cooling">
-      </button>
-
-    </div>
-
-
-  </div>
-
-
-
-  <!-- TEMPERATURE CHART -->
-
-  <div class="chart panel">
-
-
-    <div>
-
-      <b>
-        🌡️ الحرارة
-      </b>
-
-
-      <strong id="cv">
-        --.-°C
-      </strong>
-
-    </div>
-
-
-    <canvas id="c1"></canvas>
-
-
-  </div>
-
-
-</section>
-
-
-
-<!-- =====================================================
-     DATA
-===================================================== -->
-
-<section
-  id="data"
-  class="page">
-
-
-  <h1>
-    📊 البيانات
-  </h1>
-
-
-  <p>
-    تحليل القياسات
-  </p>
-
-
-
-  <div class="ranges">
-
-
-    <button class="sel">
-      1س
-    </button>
-
-
-    <button>
-      6س
-    </button>
-
-
-    <button>
-      24س
-    </button>
-
-
-    <button>
-      7أيام
-    </button>
-
-
-  </div>
-
-
-
-  <!-- AIR TEMPERATURE CHART -->
-
-  <div class="chart panel">
-
-    <b>
-      🌡️ حرارة الهواء
-    </b>
-
-    <canvas id="c2"></canvas>
-
-  </div>
-
-
-
-  <!-- WATER LEVEL CHART -->
-
-  <div class="chart panel">
-
-    <b>
-      💦 مستوى الخزان
-    </b>
-
-    <canvas id="c3"></canvas>
-
-  </div>
-
-
-
-  <!-- STATISTICS -->
-
-  <div class="stats">
-
-
-    <div>
-
-      🌊
-
-      <b id="dataWt">
-        --.-°C
-      </b>
-
-      <small>
-        حرارة الماء
-      </small>
-
-    </div>
-
-
-
-    <div>
-
-      ⚡
-
-      <b id="dataEc">
-        --
-      </b>
-
-      <small>
-        EC
-      </small>
-
-    </div>
-
-
-
-    <div>
-
-      🧪
-
-      <b id="dataPh">
-        --
-      </b>
-
-      <small>
-        pH
-      </small>
-
-    </div>
-
-
-
-    <div>
-
-      💧
-
-      <b id="dataHum">
-        --%
-      </b>
-
-      <small>
-        رطوبة
-      </small>
-
-    </div>
-
-
-  </div>
-
-
-</section>
-
-
-
-<!-- =====================================================
-     SYSTEM
-===================================================== -->
-
-<section
-  id="system"
-  class="page">
-
-
-  <h1>
-    🌱 النظام
-  </h1>
-
-
-  <p>
-    حالة المكونات
-  </p>
-
-
-
-  <div class="system">
-
-
-    <div>
-
-      🌡️
-
-      <b id="systemTemp">
-        --.-°C
-      </b>
-
-      <small>
-        هواء
-      </small>
-
-    </div>
-
-
-    <span>
-      ↓
-    </span>
-
-
-    <div>
-
-      🌀
-
-      <b id="systemFan">
-        المروحة
-      </b>
-
-      <small id="systemFanState">
-        تشغيل تلقائي
-      </small>
-
-    </div>
-
-
-    <span>
-      ↓
-    </span>
-
-
-    <div>
-
-      🌱
-
-      <b>
-        أبراج الزراعة
-      </b>
-
-      <small>
-        تعمل بشكل طبيعي
-      </small>
-
-    </div>
-
-
-    <span>
-      ↓
-    </span>
-
-
-    <div>
-
-      💧
-
-      <b id="systemTank">
-        الخزان --%
-      </b>
-
-      <small id="systemWaterTemp">
-        --.-°C
-      </small>
-
-    </div>
-
-
-    <span>
-      ↓
-    </span>
-
-
-    <div>
-
-      💧
-
-      <b id="systemPump">
-        المضخة OFF
-      </b>
-
-      <small id="systemPumpMode">
-        AUTO
-      </small>
-
-    </div>
-
-
-  </div>
-
-
-
-  <div class="panel">
-
-
-    <div class="line">
-
-      <b>
-        ❄️ Pad Cooling
-      </b>
-
-
-      <button
-        class="sw"
-        id="systemPadSwitch"
-        data-device="pad_cooling"
-        data-name="Pad Cooling">
-      </button>
-
-    </div>
-
-
-
-    <div class="line">
-
-      <b>
-        الوضع
-      </b>
-
-
-      <button id="mode">
-        AUTO
-      </button>
-
-    </div>
-
-
-  </div>
-
-
-</section>
-
-
-
-<!-- =====================================================
-     ALERTS
-===================================================== -->
-
-<section
-  id="alerts"
-  class="page">
-
-
-  <h1>
-    🔔 التنبيهات
-  </h1>
-
-
-  <p>
-    مراقبة الخلل تلقائيًا
-  </p>
-
-
-
-  <div id="alertsList">
-
-
-    <article class="alert good">
-
-      🟢
-
-      <div>
-
-        <b>
-          في انتظار اتصال ESP32
-        </b>
-
-
-        <small id="alertConnection">
-          MQTT
-        </small>
+        <strong id="homeMode">
+          AUTO
+        </strong>
 
       </div>
 
-    </article>
 
+      <!-- Monitoring -->
 
-  </div>
+      <h2>
+        المراقبة
+      </h2>
 
 
+      <div class="cards">
 
-  <button
-    class="primary"
-    id="clear">
 
-    مسح التنبيهات
+        <div class="card">
 
-  </button>
+          <span class="card-icon">
+            🌡️
+          </span>
 
+          <div>
 
-</section>
+            <small>
+              حرارة الهواء
+            </small>
 
+            <b id="temp">
+              --.-°C
+            </b>
 
+            <em id="tempStatus">
+              انتظار البيانات
+            </em>
 
-<!-- =====================================================
-     SETTINGS
-===================================================== -->
+          </div>
 
-<section
-  id="settings"
-  class="page">
+        </div>
 
 
-  <h1>
-    ⚙️ الإعدادات
-  </h1>
+        <div class="card">
 
+          <span class="card-icon">
+            💧
+          </span>
 
-  <p>
-    حدود التنبيه والتحكم
-  </p>
+          <div>
 
+            <small>
+              الرطوبة
+            </small>
 
+            <b id="hum">
+              --%
+            </b>
 
-  <!-- ===================================================
-       TEMPERATURE SETTINGS
-  ==================================================== -->
+            <em id="humStatus">
+              انتظار البيانات
+            </em>
 
-  <div class="settings panel">
+          </div>
 
+        </div>
 
-    <h3>
-      🌡️ الحرارة
-    </h3>
 
+        <div class="card">
 
+          <span class="card-icon">
+            🌊
+          </span>
 
-    <label>
+          <div>
 
-      Warning
+            <small>
+              حرارة الماء
+            </small>
 
-      <output id="fo">
-        30
-      </output>
+            <b id="wt">
+              --.-°C
+            </b>
 
-      °C
+            <em id="wtStatus">
+              انتظار البيانات
+            </em>
 
+          </div>
 
-      <input
-        id="fan"
-        type="range"
-        min="20"
-        max="45"
-        value="30">
+        </div>
 
-    </label>
 
+        <div class="card">
 
+          <span class="card-icon">
+            💦
+          </span>
 
-    <label>
+          <div>
 
-      Critical
+            <small>
+              مستوى الخزان
+            </small>
 
-      <output id="fc">
-        33
-      </output>
+            <b id="level">
+              --%
+            </b>
 
-      °C
+            <em id="levelStatus">
+              انتظار البيانات
+            </em>
 
+          </div>
 
-      <input
-        id="crit"
-        type="range"
-        min="25"
-        max="50"
-        value="33">
+        </div>
 
-    </label>
 
+        <div class="card">
 
+          <span class="card-icon">
+            ⚡
+          </span>
 
-    <label>
+          <div>
 
-      Pad Cooling
+            <small>
+              EC
+            </small>
 
-      <output id="po">
-        32
-      </output>
+            <b id="ec">
+              --
+            </b>
 
-      °C
+            <em id="ecStatus">
+              mS/cm
+            </em>
 
+          </div>
 
-      <input
-        id="pad"
-        type="range"
-        min="25"
-        max="45"
-        value="32">
+        </div>
 
-    </label>
 
+        <div class="card">
 
-  </div>
+          <span class="card-icon">
+            🧪
+          </span>
 
+          <div>
 
+            <small>
+              pH
+            </small>
 
-  <!-- ===================================================
-       WATER LEVEL SETTINGS
-  ==================================================== -->
+            <b id="ph">
+              --
+            </b>
 
-  <div class="settings panel">
+            <em id="phStatus">
+              انتظار البيانات
+            </em>
 
+          </div>
 
-    <h3>
-      💦 مستوى الخزان
-    </h3>
+        </div>
 
 
+      </div>
 
-    <label>
 
-      Warning
 
-      <output id="lo">
-        20
-      </output>
+      <!-- Quick Control -->
 
-      %
+      <h2>
+        التحكم السريع
+      </h2>
 
 
-      <input
-        id="low"
-        type="range"
-        min="5"
-        max="50"
-        value="20">
+      <div class="panel controls">
 
-    </label>
 
+        <div class="control-row">
 
+          <div>
 
-    <label>
+            <b>
+              💧 المضخة
+            </b>
 
-      Critical
+            <small id="pumpMode">
+              AUTO
+            </small>
 
-      <output id="lc">
-        10
-      </output>
+          </div>
 
-      %
 
+          <button
+            class="sw on"
+            id="pumpSwitch"
+            type="button"
+            data-device="pump"
+            data-name="المضخة"
+            aria-label="المضخة"
+          >
+          </button>
 
-      <input
-        id="critical"
-        type="range"
-        min="2"
-        max="30"
-        value="10">
+        </div>
 
-    </label>
 
+        <div class="control-row">
 
-  </div>
+          <div>
 
+            <b>
+              🌀 المروحة
+            </b>
 
+            <small id="fanMode">
+              AUTO
+            </small>
 
-  <!-- ===================================================
-       FIREBASE / FCM NOTIFICATIONS
-  ==================================================== -->
+          </div>
 
-  <div class="settings panel">
 
+          <button
+            class="sw on"
+            id="fanSwitch"
+            type="button"
+            data-device="fan"
+            data-name="المروحة"
+            aria-label="المروحة"
+          >
+          </button>
 
-    <h3>
-      🔔 إشعارات Hydro Farm
-    </h3>
+        </div>
 
 
-    <p>
-      فعّل الإشعارات لاستقبال تنبيهات المزرعة.
-    </p>
+        <div class="control-row">
 
+          <div>
 
-    <div class="line">
+            <b>
+              ❄️ Pad Cooling
+            </b>
 
-      <span>
-        حالة الإشعارات
-      </span>
+            <small id="padMode">
+              AUTO
+            </small>
 
+          </div>
 
-      <b id="notificationStatus">
-        غير مفعلة
-      </b>
 
-    </div>
+          <button
+            class="sw"
+            id="padSwitch"
+            type="button"
+            data-device="pad_cooling"
+            data-name="Pad Cooling"
+            aria-label="Pad Cooling"
+          >
+          </button>
+
+        </div>
+
+
+      </div>
+
+
+
+      <!-- Temperature Chart -->
+
+      <div class="chart panel">
+
+        <div class="chart-header">
+
+          <b>
+            🌡️ الحرارة
+          </b>
+
+          <strong id="cv">
+            --.-°C
+          </strong>
+
+        </div>
+
+
+        <canvas id="c1">
+        </canvas>
+
+      </div>
+
+
+    </section>
+
+
+
+    <!-- ===================================================
+         DATA
+    ==================================================== -->
+
+    <section
+      id="data"
+      class="page"
+    >
+
+      <h1>
+        📊 البيانات
+      </h1>
+
+      <p>
+        تحليل القياسات
+      </p>
+
+
+      <div class="ranges">
+
+        <button
+          class="sel"
+          type="button"
+        >
+          1س
+        </button>
+
+        <button
+          type="button"
+        >
+          6س
+        </button>
+
+        <button
+          type="button"
+        >
+          24س
+        </button>
+
+        <button
+          type="button"
+        >
+          7أيام
+        </button>
+
+      </div>
+
+
+      <div class="chart panel">
+
+        <b>
+          🌡️ حرارة الهواء
+        </b>
+
+        <canvas id="c2">
+        </canvas>
+
+      </div>
+
+
+      <div class="chart panel">
+
+        <b>
+          💦 مستوى الخزان
+        </b>
+
+        <canvas id="c3">
+        </canvas>
+
+      </div>
+
+
+      <div class="stats">
+
+
+        <div>
+
+          <span>
+            🌊
+          </span>
+
+          <b id="dataWt">
+            --.-°C
+          </b>
+
+          <small>
+            حرارة الماء
+          </small>
+
+        </div>
+
+
+        <div>
+
+          <span>
+            ⚡
+          </span>
+
+          <b id="dataEc">
+            --
+          </b>
+
+          <small>
+            EC
+          </small>
+
+        </div>
+
+
+        <div>
+
+          <span>
+            🧪
+          </span>
+
+          <b id="dataPh">
+            --
+          </b>
+
+          <small>
+            pH
+          </small>
+
+        </div>
+
+
+        <div>
+
+          <span>
+            💧
+          </span>
+
+          <b id="dataHum">
+            --%
+          </b>
+
+          <small>
+            رطوبة
+          </small>
+
+        </div>
+
+
+      </div>
+
+    </section>
+
+
+
+    <!-- ===================================================
+         SYSTEM
+    ==================================================== -->
+
+    <section
+      id="system"
+      class="page"
+    >
+
+      <h1>
+        🌱 النظام
+      </h1>
+
+      <p>
+        حالة مكونات البيت المحمي
+      </p>
+
+
+      <div class="system">
+
+
+        <div class="system-item">
+
+          <span>
+            🌡️
+          </span>
+
+          <b id="systemTemp">
+            --.-°C
+          </b>
+
+          <small>
+            حرارة الهواء
+          </small>
+
+        </div>
+
+
+        <span class="system-arrow">
+          ↓
+        </span>
+
+
+        <div class="system-item">
+
+          <span>
+            🌀
+          </span>
+
+          <b id="systemFan">
+            المروحة
+          </b>
+
+          <small id="systemFanState">
+            AUTO
+          </small>
+
+        </div>
+
+
+        <span class="system-arrow">
+          ↓
+        </span>
+
+
+        <div class="system-item">
+
+          <span>
+            🌱
+          </span>
+
+          <b>
+            أبراج الزراعة
+          </b>
+
+          <small>
+            النظام جاهز
+          </small>
+
+        </div>
+
+
+        <span class="system-arrow">
+          ↓
+        </span>
+
+
+        <div class="system-item">
+
+          <span>
+            💧
+          </span>
+
+          <b id="systemTank">
+            الخزان --%
+          </b>
+
+          <small id="systemWaterTemp">
+            --.-°C
+          </small>
+
+        </div>
+
+
+        <span class="system-arrow">
+          ↓
+        </span>
+
+
+        <div class="system-item">
+
+          <span>
+            💧
+          </span>
+
+          <b id="systemPump">
+            المضخة OFF
+          </b>
+
+          <small id="systemPumpMode">
+            AUTO
+          </small>
+
+        </div>
+
+
+      </div>
+
+
+      <div class="panel system-controls">
+
+
+        <div class="line">
+
+          <b>
+            ❄️ Pad Cooling
+          </b>
+
+          <button
+            class="sw"
+            id="systemPadSwitch"
+            type="button"
+            data-device="pad_cooling"
+            data-name="Pad Cooling"
+          >
+          </button>
+
+        </div>
+
+
+        <div class="line">
+
+          <b>
+            الوضع
+          </b>
+
+          <button
+            id="mode"
+            type="button"
+          >
+            AUTO
+          </button>
+
+        </div>
+
+
+      </div>
+
+    </section>
+
+
+
+    <!-- ===================================================
+         ALERTS
+    ==================================================== -->
+
+    <section
+      id="alerts"
+      class="page"
+    >
+
+      <h1>
+        🔔 التنبيهات
+      </h1>
+
+      <p>
+        مراقبة الخلل تلقائيًا
+      </p>
+
+
+      <div id="alertsList">
+
+
+        <article class="alert good">
+
+          <span>
+            🟢
+          </span>
+
+          <div>
+
+            <b>
+              النظام جاهز
+            </b>
+
+            <small id="alertConnection">
+              في انتظار اتصال ESP32 عبر MQTT
+            </small>
+
+          </div>
+
+        </article>
+
+
+      </div>
+
+
+      <button
+        class="primary"
+        id="clear"
+        type="button"
+      >
+        مسح التنبيهات
+      </button>
+
+    </section>
+
+
+
+    <!-- ===================================================
+         SETTINGS
+    ==================================================== -->
+
+    <section
+      id="settings"
+      class="page"
+    >
+
+      <h1>
+        ⚙️ الإعدادات
+      </h1>
+
+      <p>
+        إعدادات النظام والتنبيهات
+      </p>
+
+
+      <!-- Temperature -->
+
+      <div class="settings panel">
+
+        <h3>
+          🌡️ الحرارة
+        </h3>
+
+
+        <label>
+
+          Warning
+
+          <output id="fo">
+            30
+          </output>
+          °C
+
+          <input
+            id="fan"
+            type="range"
+            min="20"
+            max="45"
+            value="30"
+          >
+
+        </label>
+
+
+        <label>
+
+          Critical
+
+          <output id="fc">
+            33
+          </output>
+          °C
+
+          <input
+            id="crit"
+            type="range"
+            min="25"
+            max="50"
+            value="33"
+          >
+
+        </label>
+
+
+        <label>
+
+          Pad Cooling
+
+          <output id="po">
+            32
+          </output>
+          °C
+
+          <input
+            id="pad"
+            type="range"
+            min="25"
+            max="45"
+            value="32"
+          >
+
+        </label>
+
+      </div>
+
+
+
+      <!-- Tank -->
+
+      <div class="settings panel">
+
+        <h3>
+          💦 مستوى الخزان
+        </h3>
+
+
+        <label>
+
+          Warning
+
+          <output id="lo">
+            20
+          </output>
+          %
+
+          <input
+            id="low"
+            type="range"
+            min="5"
+            max="50"
+            value="20"
+          >
+
+        </label>
+
+
+        <label>
+
+          Critical
+
+          <output id="lc">
+            10
+          </output>
+          %
+
+          <input
+            id="critical"
+            type="range"
+            min="2"
+            max="30"
+            value="10"
+          >
+
+        </label>
+
+      </div>
+
+
+
+      <!-- MQTT -->
+
+      <div class="settings panel">
+
+        <h3>
+          ☁️ HiveMQ Cloud
+        </h3>
+
+
+        <label>
+
+          MQTT Host
+
+          <input
+            id="mqttHost"
+            type="text"
+            value="99580666d99a4632b4a1d5087e22d494.s1.eu.hivemq.cloud"
+            readonly
+          >
+
+        </label>
+
+
+        <label>
+
+          MQTT Port
+
+          <input
+            id="mqttPort"
+            type="number"
+            value="8884"
+            readonly
+          >
+
+        </label>
+
+
+        <label>
+
+          MQTT Username
+
+          <input
+            id="mqttUser"
+            type="text"
+            value="hydro01"
+            autocomplete="username"
+          >
+
+        </label>
+
+
+        <label>
+
+          MQTT Password
+
+          <input
+            id="mqttPass"
+            type="password"
+            placeholder="أدخل كلمة المرور"
+            autocomplete="current-password"
+          >
+
+        </label>
+
+
+        <button
+          class="primary"
+          id="mqttConnect"
+          type="button"
+        >
+          اتصال MQTT
+        </button>
+
+      </div>
+
+
+
+      <!-- MQTT Topics -->
+
+      <div class="settings panel">
+
+        <h3>
+          📡 MQTT — GH001
+        </h3>
+
+
+        <div class="line">
+
+          <span>
+            Greenhouse ID
+          </span>
+
+          <b>
+            GH001
+          </b>
+
+        </div>
+
+
+        <div class="line">
+
+          <span>
+            Telemetry
+          </span>
+
+          <b>
+            greenhouse/GH001/telemetry
+          </b>
+
+        </div>
+
+
+        <div class="line">
+
+          <span>
+            Control
+          </span>
+
+          <b>
+            greenhouse/GH001/control/+/set
+          </b>
+
+        </div>
+
+
+        <div class="line">
+
+          <span>
+            Actuator State
+          </span>
+
+          <b>
+            greenhouse/GH001/actuators/+/state
+          </b>
+
+        </div>
+
+
+        <div class="line">
+
+          <span>
+            Status
+          </span>
+
+          <b>
+            greenhouse/GH001/status
+          </b>
+
+        </div>
+
+
+        <div class="line">
+
+          <span>
+            Alerts
+          </span>
+
+          <b>
+            greenhouse/GH001/alerts
+          </b>
+
+        </div>
+
+      </div>
+
+
+
+      <!-- Connection Status -->
+
+      <div class="settings panel">
+
+        <h3>
+          📡 حالة الاتصال
+        </h3>
+
+
+        <div class="line">
+
+          <span>
+            Wi-Fi
+          </span>
+
+          <b id="wifiStatus">
+            غير معروف
+          </b>
+
+        </div>
+
+
+        <div class="line">
+
+          <span>
+            MQTT
+          </span>
+
+          <b id="mqttStatus">
+            غير متصل
+          </b>
+
+        </div>
+
+
+        <div class="line">
+
+          <span>
+            ESP32
+          </span>
+
+          <b id="espStatus">
+            Offline
+          </b>
+
+        </div>
+
+
+        <div class="line">
+
+          <span>
+            Firebase
+          </span>
+
+          <b id="firebaseStatus">
+            لم يتم التفعيل
+          </b>
+
+        </div>
+
+
+        <div class="line">
+
+          <span>
+            FCM
+          </span>
+
+          <b id="fcmStatus">
+            لم يتم التفعيل
+          </b>
+
+        </div>
+
+
+      </div>
+
+
+      <button
+        class="primary"
+        id="save"
+        type="button"
+      >
+        حفظ الإعدادات
+      </button>
+
+
+    </section>
+
+
+  </main>
+
+
+
+  <!-- =====================================================
+       BOTTOM NAVIGATION
+  ====================================================== -->
+
+  <nav>
 
 
     <button
-      class="primary"
-      id="enableNotifications">
+      class="active"
+      type="button"
+      data-page="home"
+    >
 
-      🔔 تفعيل الإشعارات
+      <span>
+        🏠
+      </span>
+
+      <small>
+        الرئيسية
+      </small>
 
     </button>
 
 
-  </div>
-
-
-
-  <!-- ===================================================
-       FIREBASE STATUS
-  ==================================================== -->
-
-  <div class="settings panel">
-
-
-    <h3>
-      ☁️ Firebase / FCM
-    </h3>
-
-
-    <div class="line">
-
-      <span>
-        Firebase
-      </span>
-
-
-      <b id="firebaseStatus">
-        جاري التهيئة...
-      </b>
-
-    </div>
-
-
-
-    <div class="line">
-
-      <span>
-        FCM
-      </span>
-
-
-      <b id="fcmStatus">
-        غير مفعّل
-      </b>
-
-    </div>
-
-
-
-    <div class="line">
-
-      <span>
-        Device Token
-      </span>
-
-
-      <b id="fcmTokenStatus">
-        غير مسجل
-      </b>
-
-    </div>
-
-
-  </div>
-
-
-
-  <!-- ===================================================
-       HIVEMQ
-  ==================================================== -->
-
-  <div class="settings panel">
-
-
-    <h3>
-      ☁️ HiveMQ Cloud
-    </h3>
-
-
-
-    <label>
-
-      MQTT Host
-
-
-      <input
-        id="mqttHost"
-        type="text"
-        value="99580666d99a4632b4a1d5087e22d494.s1.eu.hivemq.cloud"
-        readonly>
-
-    </label>
-
-
-
-    <label>
-
-      MQTT Port
-
-
-      <input
-        id="mqttPort"
-        type="number"
-        value="8884"
-        readonly>
-
-    </label>
-
-
-
-    <label>
-
-      MQTT Username
-
-
-      <input
-        id="mqttUser"
-        type="text"
-        value="hydro01"
-        autocomplete="username">
-
-    </label>
-
-
-
-    <label>
-
-      MQTT Password
-
-
-      <input
-        id="mqttPass"
-        type="password"
-        placeholder="أدخل كلمة المرور"
-        autocomplete="current-password">
-
-    </label>
-
-
-
     <button
-      class="primary"
-      id="mqttConnect">
+      type="button"
+      data-page="data"
+    >
 
-      اتصال MQTT
+      <span>
+        📊
+      </span>
+
+      <small>
+        البيانات
+      </small>
 
     </button>
 
 
+    <button
+      type="button"
+      data-page="system"
+    >
+
+      <span>
+        🌱
+      </span>
+
+      <small>
+        النظام
+      </small>
+
+    </button>
+
+
+    <button
+      type="button"
+      data-page="alerts"
+    >
+
+      <span>
+        🔔
+      </span>
+
+      <small>
+        التنبيهات
+      </small>
+
+    </button>
+
+
+    <button
+      type="button"
+      data-page="settings"
+    >
+
+      <span>
+        ⚙️
+      </span>
+
+      <small>
+        الإعدادات
+      </small>
+
+    </button>
+
+
+  </nav>
+
+
+
+  <!-- Toast -->
+
+  <div
+    id="toast"
+    role="status"
+    aria-live="polite"
+  >
   </div>
-
-
-
-  <!-- ===================================================
-       MQTT TOPICS
-  ==================================================== -->
-
-  <div class="settings panel">
-
-
-    <h3>
-      📡 MQTT — GH001
-    </h3>
-
-
-
-    <div class="line">
-
-      <span>
-        Greenhouse ID
-      </span>
-
-
-      <b>
-        GH001
-      </b>
-
-    </div>
-
-
-
-    <div class="line">
-
-      <span>
-        Telemetry
-      </span>
-
-
-      <b>
-        greenhouse/GH001/telemetry
-      </b>
-
-    </div>
-
-
-
-    <div class="line">
-
-      <span>
-        Control
-      </span>
-
-
-      <b>
-        greenhouse/GH001/control/+/set
-      </b>
-
-    </div>
-
-
-
-    <div class="line">
-
-      <span>
-        Actuator State
-      </span>
-
-
-      <b>
-        greenhouse/GH001/actuators/+/state
-      </b>
-
-    </div>
-
-
-
-    <div class="line">
-
-      <span>
-        Status
-      </span>
-
-
-      <b>
-        greenhouse/GH001/status
-      </b>
-
-    </div>
-
-
-
-    <div class="line">
-
-      <span>
-        Alerts
-      </span>
-
-
-      <b>
-        greenhouse/GH001/alerts
-      </b>
-
-    </div>
-
-
-  </div>
-
-
-
-  <!-- ===================================================
-       CONNECTION STATUS
-  ==================================================== -->
-
-  <div class="settings panel">
-
-
-    <h3>
-      📡 حالة الاتصال
-    </h3>
-
-
-
-    <div class="line">
-
-      <span>
-        Wi-Fi
-      </span>
-
-
-      <b
-        id="wifiStatus"
-        class="green">
-
-        متصل
-
-      </b>
-
-    </div>
-
-
-
-    <div class="line">
-
-      <span>
-        MQTT
-      </span>
-
-
-      <b id="mqttStatus">
-
-        غير متصل
-
-      </b>
-
-    </div>
-
-
-
-    <div class="line">
-
-      <span>
-        ESP32
-      </span>
-
-
-      <b id="espStatus">
-
-        Offline
-
-      </b>
-
-    </div>
-
-
-  </div>
-
-
-
-  <button
-    class="primary"
-    id="save">
-
-    حفظ الإعدادات
-
-  </button>
-
-
-</section>
-
-
-</main>
-
-
-
-<!-- =====================================================
-     BOTTOM NAVIGATION
-===================================================== -->
-
-<nav>
-
-
-  <button
-    class="active"
-    data-page="home">
-
-    🏠
-
-    <small>
-      الرئيسية
-    </small>
-
-  </button>
-
-
-
-  <button
-    data-page="data">
-
-    📊
-
-    <small>
-      البيانات
-    </small>
-
-  </button>
-
-
-
-  <button
-    data-page="system">
-
-    🌱
-
-    <small>
-      النظام
-    </small>
-
-  </button>
-
-
-
-  <button
-    data-page="alerts">
-
-    🔔
-
-    <small>
-      التنبيهات
-    </small>
-
-  </button>
-
-
-
-  <button
-    data-page="settings">
-
-    ⚙️
-
-    <small>
-      الإعدادات
-    </small>
-
-  </button>
-
-
-</nav>
-
-
-
-<!-- TOAST -->
-
-<div id="toast"></div>
 
 
 </div>
 
 
 
-<!-- =====================================================
-     FIREBASE
-===================================================== -->
+<!-- =======================================================
+     APPLICATION
+======================================================== -->
 
-<script
-  type="module"
-  src="firebase.js">
-</script>
-
-
-<!-- =====================================================
-     APPLICATION JAVASCRIPT
-===================================================== -->
-
-<script
-  src="app.js">
-</script>
-
-
-<!-- =====================================================
-     PWA
-===================================================== -->
-
-<script
-  src="pwa.js">
-</script>
-
-
-</body>
-
-</html>      ●
-    </span>
-
-
-    <div>
-
-      <b id="mqttState">
-        النظام غير متصل
-      </b>
-
-
-      <small id="mqttSub">
-        ESP32 • MQTT • Offline
-      </small>
-
-    </div>
-
-
-    <strong id="homeMode">
-      AUTO
-    </strong>
-
-  </div>
-
-
-
-  <h2>
-    المراقبة
-  </h2>
-
-
-
-  <div class="cards">
-
-
-    <div class="card">
-
-      🌡️
-
-      <small>
-        حرارة الهواء
-      </small>
-
-      <b id="temp">
-        --.-°C
-      </b>
-
-      <em id="tempStatus">
-        انتظار البيانات
-      </em>
-
-    </div>
-
-
-
-    <div class="card">
-
-      💧
-
-      <small>
-        الرطوبة
-      </small>
-
-      <b id="hum">
-        --%
-      </b>
-
-      <em id="humStatus">
-        انتظار البيانات
-      </em>
-
-    </div>
-
-
-
-    <div class="card">
-
-      🌊
-
-      <small>
-        حرارة الماء
-      </small>
-
-      <b id="wt">
-        --.-°C
-      </b>
-
-      <em id="wtStatus">
-        انتظار البيانات
-      </em>
-
-    </div>
-
-
-
-    <div class="card">
-
-      💦
-
-      <small>
-        مستوى الخزان
-      </small>
-
-      <b id="level">
-        --%
-      </b>
-
-      <em id="levelStatus">
-        انتظار البيانات
-      </em>
-
-    </div>
-
-
-
-    <div class="card">
-
-      ⚡
-
-      <small>
-        EC
-      </small>
-
-      <b id="ec">
-        --
-      </b>
-
-      <em id="ecStatus">
-        mS/cm
-      </em>
-
-    </div>
-
-
-
-    <div class="card">
-
-      🧪
-
-      <small>
-        pH
-      </small>
-
-      <b id="ph">
-        --
-      </b>
-
-      <em id="phStatus">
-        انتظار البيانات
-      </em>
-
-    </div>
-
-
-  </div>
-
-
-
-  <h2>
-    التحكم السريع
-  </h2>
-
-
-
-  <div class="panel">
-
-
-    <div>
-
-      <b>
-        💧 المضخة
-      </b>
-
-      <small id="pumpMode">
-        AUTO
-      </small>
-
-      <button
-        class="sw on"
-        id="pumpSwitch"
-        data-device="pump"
-        data-name="المضخة">
-      </button>
-
-    </div>
-
-
-
-    <div>
-
-      <b>
-        🌀 المروحة
-      </b>
-
-      <small id="fanMode">
-        AUTO
-      </small>
-
-      <button
-        class="sw on"
-        id="fanSwitch"
-        data-device="fan"
-        data-name="المروحة">
-      </button>
-
-    </div>
-
-
-
-    <div>
-
-      <b>
-        ❄️ Pad Cooling
-      </b>
-
-      <small id="padMode">
-        AUTO
-      </small>
-
-      <button
-        class="sw"
-        id="padSwitch"
-        data-device="pad_cooling"
-        data-name="Pad Cooling">
-      </button>
-
-    </div>
-
-
-  </div>
-
-
-
-  <div class="chart panel">
-
-
-    <div>
-
-      <b>
-        🌡️ الحرارة
-      </b>
-
-      <strong id="cv">
-        --.-°C
-      </strong>
-
-    </div>
-
-
-    <canvas id="c1"></canvas>
-
-
-  </div>
-
-
-</section>
-
-
-
-<!-- =====================================================
-     DATA
-===================================================== -->
-
-<section
-  id="data"
-  class="page">
-
-
-  <h1>
-    📊 البيانات
-  </h1>
-
-  <p>
-    تحليل القياسات
-  </p>
-
-
-
-  <div class="ranges">
-
-    <button class="sel">
-      1س
-    </button>
-
-    <button>
-      6س
-    </button>
-
-    <button>
-      24س
-    </button>
-
-    <button>
-      7أيام
-    </button>
-
-  </div>
-
-
-
-  <div class="chart panel">
-
-    <b>
-      🌡️ حرارة الهواء
-    </b>
-
-    <canvas id="c2"></canvas>
-
-  </div>
-
-
-
-  <div class="chart panel">
-
-    <b>
-      💦 مستوى الخزان
-    </b>
-
-    <canvas id="c3"></canvas>
-
-  </div>
-
-
-
-  <div class="stats">
-
-
-    <div>
-
-      🌊
-
-      <b id="dataWt">
-        --.-°C
-      </b>
-
-      <small>
-        حرارة الماء
-      </small>
-
-    </div>
-
-
-
-    <div>
-
-      ⚡
-
-      <b id="dataEc">
-        --
-      </b>
-
-      <small>
-        EC
-      </small>
-
-    </div>
-
-
-
-    <div>
-
-      🧪
-
-      <b id="dataPh">
-        --
-      </b>
-
-      <small>
-        pH
-      </small>
-
-    </div>
-
-
-
-    <div>
-
-      💧
-
-      <b id="dataHum">
-        --%
-      </b>
-
-      <small>
-        رطوبة
-      </small>
-
-    </div>
-
-
-  </div>
-
-
-</section>
-
-
-
-<!-- =====================================================
-     SYSTEM
-===================================================== -->
-
-<section
-  id="system"
-  class="page">
-
-
-  <h1>
-    🌱 النظام
-  </h1>
-
-  <p>
-    حالة المكونات
-  </p>
-
-
-
-  <div class="system">
-
-
-    <div>
-
-      🌡️
-
-      <b id="systemTemp">
-        --.-°C
-      </b>
-
-      <small>
-        هواء
-      </small>
-
-    </div>
-
-
-    <span>
-      ↓
-    </span>
-
-
-    <div>
-
-      🌀
-
-      <b id="systemFan">
-        المروحة
-      </b>
-
-      <small id="systemFanState">
-        تشغيل تلقائي
-      </small>
-
-    </div>
-
-
-    <span>
-      ↓
-    </span>
-
-
-    <div>
-
-      🌱
-
-      <b>
-        أبراج الزراعة
-      </b>
-
-      <small>
-        تعمل بشكل طبيعي
-      </small>
-
-    </div>
-
-
-    <span>
-      ↓
-    </span>
-
-
-    <div>
-
-      💧
-
-      <b id="systemTank">
-        الخزان --%
-      </b>
-
-      <small id="systemWaterTemp">
-        --.-°C
-      </small>
-
-    </div>
-
-
-    <span>
-      ↓
-    </span>
-
-
-    <div>
-
-      💧
-
-      <b id="systemPump">
-        المضخة OFF
-      </b>
-
-      <small id="systemPumpMode">
-        AUTO
-      </small>
-
-    </div>
-
-
-  </div>
-
-
-
-  <div class="panel">
-
-
-    <div class="line">
-
-      <b>
-        ❄️ Pad Cooling
-      </b>
-
-      <button
-        class="sw"
-        id="systemPadSwitch"
-        data-device="pad_cooling"
-        data-name="Pad Cooling">
-      </button>
-
-    </div>
-
-
-
-    <div class="line">
-
-      <b>
-        الوضع
-      </b>
-
-      <button id="mode">
-        AUTO
-      </button>
-
-    </div>
-
-
-  </div>
-
-
-</section>
-
-
-
-<!-- =====================================================
-     ALERTS
-===================================================== -->
-
-<section
-  id="alerts"
-  class="page">
-
-
-  <h1>
-    🔔 التنبيهات
-  </h1>
-
-  <p>
-    مراقبة الخلل تلقائيًا
-  </p>
-
-
-
-  <div id="alertsList">
-
-
-    <article class="alert good">
-
-      🟢
-
-      <div>
-
-        <b>
-          في انتظار اتصال ESP32
-        </b>
-
-        <small id="alertConnection">
-          MQTT
-        </small>
-
-      </div>
-
-    </article>
-
-
-  </div>
-
-
-
-  <button
-    class="primary"
-    id="clear">
-
-    مسح التنبيهات
-
-  </button>
-
-
-</section>
-
-
-
-<!-- =====================================================
-     SETTINGS
-===================================================== -->
-
-<section
-  id="settings"
-  class="page">
-
-
-  <h1>
-    ⚙️ الإعدادات
-  </h1>
-
-  <p>
-    حدود التنبيه والتحكم
-  </p>
-
-
-
-  <!-- TEMPERATURE -->
-
-  <div class="settings panel">
-
-
-    <h3>
-      🌡️ الحرارة
-    </h3>
-
-
-
-    <label>
-
-      Warning
-
-      <output id="fo">
-        30
-      </output>
-
-      °C
-
-
-      <input
-        id="fan"
-        type="range"
-        min="20"
-        max="45"
-        value="30">
-
-    </label>
-
-
-
-    <label>
-
-      Critical
-
-      <output id="fc">
-        33
-      </output>
-
-      °C
-
-
-      <input
-        id="crit"
-        type="range"
-        min="25"
-        max="50"
-        value="33">
-
-    </label>
-
-
-
-    <label>
-
-      Pad Cooling
-
-      <output id="po">
-        32
-      </output>
-
-      °C
-
-
-      <input
-        id="pad"
-        type="range"
-        min="25"
-        max="45"
-        value="32">
-
-    </label>
-
-
-  </div>
-
-
-
-  <!-- WATER LEVEL -->
-
-  <div class="settings panel">
-
-
-    <h3>
-      💦 مستوى الخزان
-    </h3>
-
-
-
-    <label>
-
-      Warning
-
-      <output id="lo">
-        20
-      </output>
-
-      %
-
-
-      <input
-        id="low"
-        type="range"
-        min="5"
-        max="50"
-        value="20">
-
-    </label>
-
-
-
-    <label>
-
-      Critical
-
-      <output id="lc">
-        10
-      </output>
-
-      %
-
-
-      <input
-        id="critical"
-        type="range"
-        min="2"
-        max="30"
-        value="10">
-
-    </label>
-
-
-  </div>
-
-
-
-  <!-- ===================================================
-       NOTIFICATIONS
-  ==================================================== -->
-
-  <div class="settings panel">
-
-
-    <h3>
-      🔔 إشعارات Hydro Farm
-    </h3>
-
-
-    <p>
-      فعّل الإشعارات لاستقبال تنبيهات المزرعة حتى عند
-      عدم فتح صفحة المراقبة.
-    </p>
-
-
-    <div class="line">
-
-      <span>
-        حالة الإشعارات
-      </span>
-
-      <b id="notificationStatus">
-        غير مفعلة
-      </b>
-
-    </div>
-
-
-    <button
-      class="primary"
-      id="enableNotifications">
-
-      🔔 تفعيل الإشعارات
-
-    </button>
-
-
-  </div>
-
-
-
-  <!-- ===================================================
-       FIREBASE STATUS
-  ==================================================== -->
-
-  <div class="settings panel">
-
-
-    <h3>
-      ☁️ Firebase / FCM
-    </h3>
-
-
-    <div class="line">
-
-      <span>
-        Firebase
-      </span>
-
-      <b id="firebaseStatus">
-        غير متصل
-      </b>
-
-    </div>
-
-
-    <div class="line">
-
-      <span>
-        FCM
-      </span>
-
-      <b id="fcmStatus">
-        غير مفعّل
-      </b>
-
-    </div>
-
-
-    <div class="line">
-
-      <span>
-        Device Token
-      </span>
-
-      <b
-        id="fcmTokenStatus">
-
-        غير مسجل
-
-      </b>
-
-    </div>
-
-
-  </div>
-
-
-
-  <!-- ===================================================
-       MQTT
-  ==================================================== -->
-
-  <div class="settings panel">
-
-
-    <h3>
-      ☁️ HiveMQ Cloud
-    </h3>
-
-
-
-    <label>
-
-      MQTT Host
-
-      <input
-        id="mqttHost"
-        type="text"
-        value="99580666d99a4632b4a1d5087e22d494.s1.eu.hivemq.cloud"
-        readonly>
-
-    </label>
-
-
-
-    <label>
-
-      MQTT Port
-
-      <input
-        id="mqttPort"
-        type="number"
-        value="8884"
-        readonly>
-
-    </label>
-
-
-
-    <label>
-
-      MQTT Username
-
-      <input
-        id="mqttUser"
-        type="text"
-        value="hydro01"
-        autocomplete="username">
-
-    </label>
-
-
-
-    <label>
-
-      MQTT Password
-
-      <input
-        id="mqttPass"
-        type="password"
-        placeholder="أدخل كلمة المرور"
-        autocomplete="current-password">
-
-    </label>
-
-
-
-    <button
-      class="primary"
-      id="mqttConnect">
-
-      اتصال MQTT
-
-    </button>
-
-
-  </div>
-
-
-
-  <!-- ===================================================
-       MQTT TOPICS
-  ==================================================== -->
-
-  <div class="settings panel">
-
-
-    <h3>
-      📡 MQTT — GH001
-    </h3>
-
-
-
-    <div class="line">
-
-      <span>
-        Greenhouse ID
-      </span>
-
-      <b>
-        GH001
-      </b>
-
-    </div>
-
-
-
-    <div class="line">
-
-      <span>
-        Telemetry
-      </span>
-
-      <b>
-        greenhouse/GH001/telemetry
-      </b>
-
-    </div>
-
-
-
-    <div class="line">
-
-      <span>
-        Control
-      </span>
-
-      <b>
-        greenhouse/GH001/control/+/set
-      </b>
-
-    </div>
-
-
-
-    <div class="line">
-
-      <span>
-        Actuator State
-      </span>
-
-      <b>
-        greenhouse/GH001/actuators/+/state
-      </b>
-
-    </div>
-
-
-
-    <div class="line">
-
-      <span>
-        Status
-      </span>
-
-      <b>
-        greenhouse/GH001/status
-      </b>
-
-    </div>
-
-
-
-    <div class="line">
-
-      <span>
-        Alerts
-      </span>
-
-      <b>
-        greenhouse/GH001/alerts
-      </b>
-
-    </div>
-
-
-  </div>
-
-
-
-  <!-- ===================================================
-       CONNECTION STATUS
-  ==================================================== -->
-
-  <div class="settings panel">
-
-
-    <h3>
-      📡 حالة الاتصال
-    </h3>
-
-
-
-    <div class="line">
-
-      Wi-Fi
-
-      <b
-        id="wifiStatus"
-        class="green">
-
-        متصل
-
-      </b>
-
-    </div>
-
-
-
-    <div class="line">
-
-      MQTT
-
-      <b
-        id="mqttStatus">
-
-        غير متصل
-
-      </b>
-
-    </div>
-
-
-
-    <div class="line">
-
-      ESP32
-
-      <b id="espStatus">
-
-        Offline
-
-      </b>
-
-    </div>
-
-
-  </div>
-
-
-
-  <button
-    class="primary"
-    id="save">
-
-    حفظ الإعدادات
-
-  </button>
-
-
-</section>
-
-
-</main>
-
-
-
-<!-- =====================================================
-     BOTTOM NAVIGATION
-===================================================== -->
-
-<nav>
-
-
-  <button
-    class="active"
-    data-page="home">
-
-    🏠
-
-    <small>
-      الرئيسية
-    </small>
-
-  </button>
-
-
-
-  <button
-    data-page="data">
-
-    📊
-
-    <small>
-      البيانات
-    </small>
-
-  </button>
-
-
-
-  <button
-    data-page="system">
-
-    🌱
-
-    <small>
-      النظام
-    </small>
-
-  </button>
-
-
-
-  <button
-    data-page="alerts">
-
-    🔔
-
-    <small>
-      التنبيهات
-    </small>
-
-  </button>
-
-
-
-  <button
-    data-page="settings">
-
-    ⚙️
-
-    <small>
-      الإعدادات
-    </small>
-
-  </button>
-
-
-</nav>
-
-
-
-<div id="toast"></div>
-
-
-</div>
-
-
-<!-- =====================================================
-     APPLICATION JAVASCRIPT
-===================================================== -->
-
-<script type="module" src="firebase.js"></script>
 <script src="app.js"></script>
-<script src="pwa.js"></script>
-</body>
 
-</html>
+<script src="pwa.js"></script>
+
+
+</body>
+  </html>
