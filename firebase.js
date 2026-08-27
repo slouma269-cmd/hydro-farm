@@ -45,16 +45,20 @@ const firebaseConfig = {
 
 
 /* =========================================================
+   HYDRO FARM FCM VAPID PUBLIC KEY
+========================================================= */
+
+const HYDRO_VAPID_KEY =
+  "BDDs10tlb8c7DPFmpkqHWpWNVkE3_yrqFpJ0ytLfRqmOnyKqUzn-KpSznaC5d3MhWZtg5-yQbknlG2jNCU7Knwo";
+
+
+/* =========================================================
    INITIALIZE FIREBASE
 ========================================================= */
 
 const firebaseApp =
   initializeApp(firebaseConfig);
 
-
-/* =========================================================
-   INITIALIZE FCM
-========================================================= */
 
 let hydroMessaging = null;
 
@@ -64,26 +68,13 @@ try {
     getMessaging(firebaseApp);
 
   console.log(
-    "Firebase Messaging initialized"
+    "Hydro Farm: Firebase Messaging initialized"
   );
-
-  const status =
-    document.getElementById("firebaseStatus");
-
-  if(status){
-
-    status.textContent =
-      "متصل";
-
-    status.className =
-      "green";
-
-  }
 
 } catch(error) {
 
   console.error(
-    "Firebase Messaging initialization failed:",
+    "Hydro Farm: Firebase Messaging initialization failed",
     error
   );
 
@@ -91,11 +82,110 @@ try {
 
 
 /* =========================================================
-   VAPID PUBLIC KEY
+   SERVICE WORKER
 ========================================================= */
 
-const HYDRO_VAPID_KEY =
-  "BDDs10tlb8c7DPFmpkqHWpWNVkE3_yrqFpJ0ytLfRqmOnyKqUzn-KpSznaC5d3MhWZtg5-yQbknlG2jNCU7Knwo";
+async function getHydroServiceWorker(){
+
+  if(!("serviceWorker" in navigator)){
+
+    console.warn(
+      "Service Worker is not supported"
+    );
+
+    return null;
+
+  }
+
+  try{
+
+    const registration =
+      await navigator.serviceWorker.register(
+        "./sw.js",
+        {
+          scope: "./"
+        }
+      );
+
+    console.log(
+      "Hydro Farm Service Worker registered"
+    );
+
+    return registration;
+
+  }catch(error){
+
+    console.error(
+      "Service Worker registration failed",
+      error
+    );
+
+    return null;
+
+  }
+
+}
+
+
+/* =========================================================
+   NOTIFICATION PERMISSION
+========================================================= */
+
+async function requestHydroNotificationPermission(){
+
+  if(!("Notification" in window)){
+
+    console.warn(
+      "Browser does not support notifications"
+    );
+
+    return "unsupported";
+
+  }
+
+
+  if(Notification.permission === "granted"){
+
+    return "granted";
+
+  }
+
+
+  if(Notification.permission === "denied"){
+
+    console.warn(
+      "Notification permission was denied"
+    );
+
+    return "denied";
+
+  }
+
+
+  try{
+
+    const permission =
+      await Notification.requestPermission();
+
+    console.log(
+      "Hydro Farm notification permission:",
+      permission
+    );
+
+    return permission;
+
+  }catch(error){
+
+    console.error(
+      "Notification permission error",
+      error
+    );
+
+    return "error";
+
+  }
+
+}
 
 
 /* =========================================================
@@ -107,7 +197,7 @@ async function getHydroFCMToken(){
   if(!hydroMessaging){
 
     console.error(
-      "FCM Messaging is not initialized"
+      "FCM Messaging is not available"
     );
 
     return null;
@@ -118,7 +208,26 @@ async function getHydroFCMToken(){
   try{
 
     const registration =
-      await navigator.serviceWorker.ready;
+      await getHydroServiceWorker();
+
+
+    if(!registration)
+      return null;
+
+
+    const permission =
+      await requestHydroNotificationPermission();
+
+
+    if(permission !== "granted"){
+
+      updateFCMStatus(
+        "الإشعارات غير مفعلة"
+      );
+
+      return null;
+
+    }
 
 
     const token =
@@ -136,65 +245,57 @@ async function getHydroFCMToken(){
       );
 
 
-    if(token){
+    if(!token){
 
-      console.log(
-        "Hydro Farm FCM Token:",
-        token
+      console.warn(
+        "FCM token was not generated"
       );
 
+      updateFCMStatus(
+        "لم يتم إنشاء Token"
+      );
 
-      const status =
-        document.getElementById(
-          "fcmTokenStatus"
-        );
-
-
-      if(status){
-
-        status.textContent =
-          "مسجل";
-
-        status.className =
-          "green";
-
-      }
-
-
-      const fcmStatus =
-        document.getElementById(
-          "fcmStatus"
-        );
-
-
-      if(fcmStatus){
-
-        fcmStatus.textContent =
-          "مفعّل";
-
-        fcmStatus.className =
-          "green";
-
-      }
-
-
-      return token;
+      return null;
 
     }
 
 
-    console.warn(
-      "No FCM registration token available"
+    console.log(
+      "Hydro Farm FCM Token:",
+      token
     );
 
-    return null;
 
+    localStorage.setItem(
+      "hydro_fcm_token",
+      token
+    );
+
+
+    updateFCMStatus(
+      "مفعّل"
+    );
+
+
+    /*
+      The token is intentionally stored locally.
+
+      Later we can send it to Firebase/Firestore
+      or another backend for multi-device support.
+    */
+
+
+    return token;
 
   }catch(error){
 
     console.error(
-      "FCM token error:",
+      "Hydro Farm FCM Token error:",
       error
+    );
+
+    updateFCMStatus(
+      "خطأ في FCM"
     );
 
     return null;
@@ -205,52 +306,127 @@ async function getHydroFCMToken(){
 
 
 /* =========================================================
-   FOREGROUND MESSAGES
+   UPDATE FCM STATUS IN UI
 ========================================================= */
 
-if(hydroMessaging){
+function updateFCMStatus(text){
+
+  const fcmStatus =
+    document.getElementById("fcmStatus");
+
+  if(fcmStatus){
+
+    fcmStatus.textContent =
+      text;
+
+    if(text === "مفعّل"){
+
+      fcmStatus.className =
+        "green";
+
+    }else{
+
+      fcmStatus.className =
+        "";
+
+    }
+
+  }
+
+
+  const tokenStatus =
+    document.getElementById(
+      "fcmTokenStatus"
+    );
+
+  if(tokenStatus){
+
+    tokenStatus.textContent =
+      text;
+
+    if(text === "مفعّل"){
+
+      tokenStatus.className =
+        "green";
+
+    }
+
+  }
+
+}
+
+
+/* =========================================================
+   FOREGROUND FCM MESSAGE
+========================================================= */
+
+function startHydroForegroundMessages(){
+
+  if(!hydroMessaging)
+    return;
+
 
   onMessage(
     hydroMessaging,
     payload => {
 
       console.log(
-        "Hydro Farm FCM message:",
+        "Hydro Farm FCM foreground message:",
         payload
       );
 
 
+      const notification =
+        payload.notification || {};
+
+
+      const data =
+        payload.data || {};
+
+
       const title =
-        payload.notification?.title ||
+        notification.title ||
+        data.title ||
         "Hydro Farm";
 
 
       const body =
-        payload.notification?.body ||
-        "تنبيه جديد من النظام";
+        notification.body ||
+        data.body ||
+        data.message ||
+        "يوجد تنبيه جديد من البيت المحمي";
+
+
+      const severity =
+        String(
+          data.severity ||
+          "INFO"
+        ).toUpperCase();
 
 
       if(
-        typeof showHydroNotification ===
+        typeof window.showHydroNotification ===
         "function"
       ){
 
-        showHydroNotification(
+        window.showHydroNotification(
           title,
-          body
+          body,
+          severity
         );
 
       }
 
 
       if(
-        typeof addHydroAlert ===
+        typeof window.addHydroAlert ===
         "function"
       ){
 
-        addHydroAlert(
+        window.addHydroAlert(
           title,
-          body
+          body,
+          severity
         );
 
       }
@@ -262,7 +438,109 @@ if(hydroMessaging){
 
 
 /* =========================================================
-   EXPORT
+   PREPARE FCM
+========================================================= */
+
+async function prepareHydroFCM(){
+
+  const registration =
+    await getHydroServiceWorker();
+
+
+  if(!registration)
+    return null;
+
+
+  startHydroForegroundMessages();
+
+
+  /*
+    We do NOT force the permission immediately
+    when the page loads.
+
+    The user can activate notifications through
+    the notification/bell button.
+  */
+
+
+  if(
+    "Notification" in window &&
+    Notification.permission === "granted"
+  ){
+
+    return await getHydroFCMToken();
+
+  }
+
+
+  return null;
+
+}
+
+
+/* =========================================================
+   BELL BUTTON
+========================================================= */
+
+function setupHydroNotificationButton(){
+
+  const bell =
+    document.getElementById("bell");
+
+
+  if(!bell)
+    return;
+
+
+  bell.addEventListener(
+    "click",
+    async () => {
+
+      const permission =
+        await requestHydroNotificationPermission();
+
+
+      if(permission === "granted"){
+
+        await getHydroFCMToken();
+
+
+        if(
+          typeof window.showHydroToast ===
+          "function"
+        ){
+
+          window.showHydroToast(
+            "تم تفعيل إشعارات Hydro Farm"
+          );
+
+        }
+
+      }
+
+      else if(permission === "denied"){
+
+        if(
+          typeof window.showHydroToast ===
+          "function"
+        ){
+
+          window.showHydroToast(
+            "الإشعارات محظورة من إعدادات المتصفح"
+          );
+
+        }
+
+      }
+
+    }
+  );
+
+}
+
+
+/* =========================================================
+   GLOBAL API
 ========================================================= */
 
 window.HydroFirebase = {
@@ -273,7 +551,32 @@ window.HydroFirebase = {
   messaging:
     hydroMessaging,
 
+  vapidKey:
+    HYDRO_VAPID_KEY,
+
   getFCMToken:
-    getHydroFCMToken
+    getHydroFCMToken,
+
+  requestPermission:
+    requestHydroNotificationPermission,
+
+  prepare:
+    prepareHydroFCM
 
 };
+
+
+/* =========================================================
+   START
+========================================================= */
+
+window.addEventListener(
+  "load",
+  () => {
+
+    setupHydroNotificationButton();
+
+    prepareHydroFCM();
+
+  }
+);
