@@ -1,26 +1,32 @@
 /* =========================================================
-   HYDRO FARM SERVICE WORKER
+   HYDRO FARM
+   SERVICE WORKER
+   PWA + FCM
 ========================================================= */
 
 const CACHE_NAME =
-    "hydro-farm-phase2-v1";
+  "hydro-farm-v4";
 
 
-const FILES = [
+const ASSETS = [
 
-    "./",
+  "./",
 
-    "./index.html",
+  "./index.html",
 
-    "./style.css",
+  "./style.css",
 
-    "./app.js",
+  "./app.js",
 
-    "./manifest.json",
+  "./firebase.js",
 
-    "./icon-192.png",
+  "./pwa.js",
 
-    "./icon-512.png"
+  "./manifest.json",
+
+  "./icon-192.png",
+
+  "./icon-512.png"
 
 ];
 
@@ -30,28 +36,27 @@ const FILES = [
 ========================================================= */
 
 self.addEventListener(
-    "install",
-    event => {
+  "install",
+  event => {
 
-        event.waitUntil(
+    event.waitUntil(
 
-            caches.open(
-                CACHE_NAME
+      caches
+        .open(CACHE_NAME)
+        .then(
+          cache =>
+            cache.addAll(
+              ASSETS
             )
-            .then(
-                cache =>
-                    cache.addAll(
-                        FILES
-                    )
-            )
-            .then(
-                () =>
-                    self.skipWaiting()
-            )
+        )
+        .then(
+          () =>
+            self.skipWaiting()
+        )
 
-        );
+    );
 
-    }
+  }
 );
 
 
@@ -60,41 +65,42 @@ self.addEventListener(
 ========================================================= */
 
 self.addEventListener(
-    "activate",
-    event => {
+  "activate",
+  event => {
 
-        event.waitUntil(
+    event.waitUntil(
 
-            caches.keys()
-            .then(
-                keys =>
+      caches
+        .keys()
+        .then(
+          keys =>
 
-                    Promise.all(
+            Promise.all(
 
-                        keys
-                        .filter(
-                            key =>
-                                key !==
-                                CACHE_NAME
-                        )
-                        .map(
-                            key =>
-                                caches.delete(
-                                    key
-                                )
-                        )
-
+              keys
+                .filter(
+                  key =>
+                    key !==
+                    CACHE_NAME
+                )
+                .map(
+                  key =>
+                    caches.delete(
+                      key
                     )
+                )
 
             )
-            .then(
-                () =>
-                    self.clients.claim()
-            )
 
-        );
+        )
+        .then(
+          () =>
+            self.clients.claim()
+        )
 
-    }
+    );
+
+  }
 );
 
 
@@ -103,197 +109,247 @@ self.addEventListener(
 ========================================================= */
 
 self.addEventListener(
-    "fetch",
-    event => {
+  "fetch",
+  event => {
 
-        if(
-            event.request.method !==
-            "GET"
+    if(
+      event.request.method !==
+      "GET"
+    )
+      return;
+
+
+    /*
+      لا نعترض طلبات MQTT/WebSocket.
+    */
+
+    if(
+      event.request.url.startsWith(
+        "wss://"
+      )
+    )
+      return;
+
+
+    event.respondWith(
+
+      caches
+        .match(
+          event.request
         )
-            return;
+        .then(
+          cached => {
+
+            if(cached)
+              return cached;
 
 
-        /*
-          لا نخزن MQTT/WebSocket
-        */
-
-        if(
-            event.request.url.includes(
-                "hivemq.cloud"
-            )
-        )
-            return;
-
-
-        event.respondWith(
-
-            caches.match(
-                event.request
+            return fetch(
+              event.request
             )
             .then(
-                cached => {
+              response => {
 
-                    if(cached)
-                        return cached;
+                if(
+                  !response ||
+                  response.status !== 200 ||
+                  response.type ===
+                    "opaque"
+                ){
 
-
-                    return fetch(
-                        event.request
-                    )
-                    .then(
-                        response => {
-
-                            if(
-                                !response ||
-                                response.status !== 200 ||
-                                response.type ===
-                                "opaque"
-                            ){
-
-                                return response;
-
-                            }
-
-
-                            const copy =
-                                response.clone();
-
-
-                            caches.open(
-                                CACHE_NAME
-                            )
-                            .then(
-                                cache =>
-                                    cache.put(
-                                        event.request,
-                                        copy
-                                    )
-                            );
-
-
-                            return response;
-
-                        }
-                    )
-                    .catch(
-                        () =>
-                            caches.match(
-                                "./index.html"
-                            )
-                    );
+                  return response;
 
                 }
+
+
+                const copy =
+                  response.clone();
+
+
+                caches
+                  .open(
+                    CACHE_NAME
+                  )
+                  .then(
+                    cache =>
+                      cache.put(
+                        event.request,
+                        copy
+                      )
+                  );
+
+
+                return response;
+
+              }
             )
+            .catch(
+              () =>
+                caches.match(
+                  "./index.html"
+                )
+            );
 
-        );
+          }
+        )
 
-    }
+    );
+
+  }
 );
 
 
 /* =========================================================
-   PUSH
+   FCM / PUSH
 ========================================================= */
 
 self.addEventListener(
-    "push",
-    event => {
+  "push",
+  event => {
 
-        let data = {};
-
-
-        try{
-
-            if(event.data)
-                data =
-                    event.data.json();
-
-        }catch(error){
-
-            data = {
-
-                title:
-                    "Hydro Farm",
-
-                body:
-                    event.data
-                        ? event.data.text()
-                        : "تنبيه جديد"
-
-            };
-
-        }
+    let data = {};
 
 
-        const title =
-            data.title ||
-            "Hydro Farm";
+    try {
+
+      if(event.data){
+
+        data =
+          event.data.json();
+
+      }
+
+    } catch(error){
+
+      console.warn(
+        "Push JSON parsing failed"
+      );
 
 
-        const body =
-            data.body ||
-            data.message ||
-            "يوجد تنبيه جديد";
+      try {
 
+        data = {
 
-        const severity =
-            String(
-                data.severity ||
-                "INFO"
-            ).toUpperCase();
-
-
-        const options = {
-
-            body:
-                body,
-
-            icon:
-                "./icon-192.png",
-
-            badge:
-                "./icon-192.png",
-
-            tag:
-                data.tag ||
-                "hydro-farm-alert",
-
-            renotify:
-                true,
-
-            requireInteraction:
-                severity === "HIGH" ||
-                severity === "CRITICAL",
-
-            data:{
-
-                url:
-                    data.url ||
-                    "./",
-
-                greenhouse:
-                    data.greenhouse ||
-                    "GH001",
-
-                severity:
-                    severity
-
-            }
+          body:
+            event.data
+              ? event.data.text()
+              : "تنبيه جديد من Hydro Farm"
 
         };
 
+      } catch(e){
 
-        event.waitUntil(
+        data = {};
 
-            self.registration
-                .showNotification(
-                    title,
-                    options
-                )
-
-        );
+      }
 
     }
+
+
+    const notification =
+      data.notification ||
+      {};
+
+
+    const dataPayload =
+      data.data ||
+      {};
+
+
+    const title =
+      notification.title ||
+      data.title ||
+      dataPayload.title ||
+      "Hydro Farm";
+
+
+    const body =
+      notification.body ||
+      data.body ||
+      data.message ||
+      dataPayload.body ||
+      dataPayload.message ||
+      "يوجد تنبيه جديد في البيت المحمي";
+
+
+    const severity =
+      String(
+        data.severity ||
+        dataPayload.severity ||
+        "INFO"
+      ).toUpperCase();
+
+
+    const url =
+      data.url ||
+      dataPayload.url ||
+      "./";
+
+
+    const options = {
+
+      body:
+        body,
+
+      icon:
+        "./icon-192.png",
+
+      badge:
+        "./icon-192.png",
+
+      tag:
+        data.tag ||
+        dataPayload.tag ||
+        "hydro-farm-alert",
+
+      renotify:
+        true,
+
+      data: {
+
+        url:
+          url,
+
+        greenhouse:
+          data.greenhouse ||
+          dataPayload.greenhouse ||
+          "GH001",
+
+        type:
+          data.type ||
+          dataPayload.type ||
+          "ALERT",
+
+        severity:
+          severity
+
+      }
+
+    };
+
+
+    if(
+      severity === "HIGH" ||
+      severity === "CRITICAL"
+    ){
+
+      options.requireInteraction =
+        true;
+
+    }
+
+
+    event.waitUntil(
+
+      self.registration
+        .showNotification(
+          title,
+          options
+        )
+
+    );
+
+  }
 );
 
 
@@ -302,64 +358,100 @@ self.addEventListener(
 ========================================================= */
 
 self.addEventListener(
-    "notificationclick",
-    event => {
+  "notificationclick",
+  event => {
 
-        event.notification.close();
-
-
-        const url =
-            event.notification?.data?.url ||
-            "./";
+    event.notification.close();
 
 
-        event.waitUntil(
-
-            self.clients.matchAll({
-
-                type:"window",
-
-                includeUncontrolled:true
-
-            })
-
-            .then(
-                clients => {
-
-                    for(
-                        const client
-                        of clients
-                    ){
-
-                        if(
-                            "focus"
-                            in client
-                        ){
-
-                            client.focus();
-
-                            return client;
-
-                        }
-
-                    }
+    const targetUrl =
+      event.notification?.data?.url ||
+      "./";
 
 
-                    if(
-                        self.clients.openWindow
-                    ){
+    event.waitUntil(
 
-                        return self.clients
-                            .openWindow(
-                                url
-                            );
+      self.clients
+        .matchAll(
+          {
+            type: "window",
+            includeUncontrolled: true
+          }
+        )
+        .then(
+          clients => {
 
-                    }
+            /*
+              فتح التطبيق الموجود مسبقًا
+            */
 
-                }
-            )
+            for(
+              const client of clients
+            ){
 
-        );
+              if(
+                "focus" in client
+              ){
 
-    }
+                client.focus();
+
+                /*
+                  إرسال رسالة إلى التطبيق
+                */
+
+                client.postMessage({
+
+                  type:
+                    "HYDRO_NOTIFICATION_CLICK",
+
+                  url:
+                    targetUrl
+
+                });
+
+
+                return client;
+
+              }
+
+            }
+
+
+            /*
+              فتح التطبيق إذا لم يكن موجودًا
+            */
+
+            if(
+              self.clients.openWindow
+            ){
+
+              return self.clients
+                .openWindow(
+                  targetUrl
+                );
+
+            }
+
+          }
+        )
+
+    );
+
+  }
+);
+
+
+/* =========================================================
+   NOTIFICATION CLOSE
+========================================================= */
+
+self.addEventListener(
+  "notificationclose",
+  event => {
+
+    console.log(
+      "Hydro Farm notification closed"
+    );
+
+  }
 );
