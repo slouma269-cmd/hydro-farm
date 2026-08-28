@@ -1,7 +1,7 @@
 /* =========================================================
    HYDRO FARM
    SERVICE WORKER
-   PWA + FCM
+   PWA + FCM + PUSH
 ========================================================= */
 
 const CACHE_NAME =
@@ -11,21 +11,13 @@ const CACHE_NAME =
 const ASSETS = [
 
   "./",
-
   "./index.html",
-
   "./style.css",
-
   "./app.js",
-
   "./firebase.js",
-
   "./pwa.js",
-
   "./manifest.json",
-
   "./icon-192.png",
-
   "./icon-512.png"
 
 ];
@@ -39,20 +31,28 @@ self.addEventListener(
   "install",
   event => {
 
+    console.log(
+      "Hydro SW installing..."
+    );
+
+
     event.waitUntil(
 
-      caches
-        .open(CACHE_NAME)
-        .then(
-          cache =>
-            cache.addAll(
-              ASSETS
-            )
-        )
-        .then(
-          () =>
-            self.skipWaiting()
-        )
+      caches.open(
+        CACHE_NAME
+      )
+
+      .then(
+        cache =>
+          cache.addAll(
+            ASSETS
+          )
+      )
+
+      .then(
+        () =>
+          self.skipWaiting()
+      )
 
     );
 
@@ -68,35 +68,43 @@ self.addEventListener(
   "activate",
   event => {
 
+    console.log(
+      "Hydro SW activated"
+    );
+
+
     event.waitUntil(
 
-      caches
-        .keys()
-        .then(
-          keys =>
+      caches.keys()
 
-            Promise.all(
+      .then(
+        keys =>
 
-              keys
-                .filter(
-                  key =>
-                    key !==
-                    CACHE_NAME
-                )
-                .map(
-                  key =>
-                    caches.delete(
-                      key
-                    )
-                )
+          Promise.all(
 
-            )
+            keys
 
-        )
-        .then(
-          () =>
-            self.clients.claim()
-        )
+              .filter(
+                key =>
+                  key !==
+                  CACHE_NAME
+              )
+
+              .map(
+                key =>
+                  caches.delete(
+                    key
+                  )
+              )
+
+          )
+
+      )
+
+      .then(
+        () =>
+          self.clients.claim()
+      )
 
     );
 
@@ -112,7 +120,7 @@ self.addEventListener(
   "fetch",
   event => {
 
-    if(
+    if (
       event.request.method !==
       "GET"
     )
@@ -120,78 +128,82 @@ self.addEventListener(
 
 
     /*
-      لا نعترض طلبات MQTT/WebSocket.
+      لا نحاول تخزين طلبات خارج
+      نطاق التطبيق.
     */
 
-    if(
-      event.request.url.startsWith(
-        "wss://"
-      )
+    const url =
+      new URL(
+        event.request.url
+      );
+
+
+    if (
+      url.origin !==
+      self.location.origin
     )
       return;
 
 
     event.respondWith(
 
-      caches
-        .match(
-          event.request
-        )
-        .then(
-          cached => {
+      caches.match(
+        event.request
+      )
 
-            if(cached)
-              return cached;
+      .then(
+        cached => {
 
-
-            return fetch(
-              event.request
-            )
-            .then(
-              response => {
-
-                if(
-                  !response ||
-                  response.status !== 200 ||
-                  response.type ===
-                    "opaque"
-                ){
-
-                  return response;
-
-                }
+          if (cached)
+            return cached;
 
 
-                const copy =
-                  response.clone();
+          return fetch(
+            event.request
+          )
 
+          .then(
+            response => {
 
-                caches
-                  .open(
-                    CACHE_NAME
-                  )
-                  .then(
-                    cache =>
-                      cache.put(
-                        event.request,
-                        copy
-                      )
-                  );
-
-
+              if (
+                !response ||
+                response.status !==
+                200
+              )
                 return response;
 
-              }
-            )
-            .catch(
-              () =>
-                caches.match(
-                  "./index.html"
-                )
-            );
 
-          }
-        )
+              const copy =
+                response.clone();
+
+
+              caches.open(
+                CACHE_NAME
+              )
+
+              .then(
+                cache =>
+                  cache.put(
+                    event.request,
+                    copy
+                  )
+              );
+
+
+              return response;
+
+            }
+          )
+
+          .catch(
+            () =>
+              caches.match(
+                "./index.html"
+              )
+          );
+
+        }
+      )
 
     );
 
@@ -200,7 +212,7 @@ self.addEventListener(
 
 
 /* =========================================================
-   FCM / PUSH
+   PUSH
 ========================================================= */
 
 self.addEventListener(
@@ -212,32 +224,27 @@ self.addEventListener(
 
     try {
 
-      if(event.data){
+      if (event.data) {
 
         data =
           event.data.json();
 
       }
 
-    } catch(error){
-
-      console.warn(
-        "Push JSON parsing failed"
-      );
-
+    } catch (error) {
 
       try {
 
         data = {
 
-          body:
+          message:
             event.data
               ? event.data.text()
               : "تنبيه جديد من Hydro Farm"
 
         };
 
-      } catch(e){
+      } catch (e) {
 
         data = {};
 
@@ -246,44 +253,24 @@ self.addEventListener(
     }
 
 
-    const notification =
-      data.notification ||
-      {};
-
-
-    const dataPayload =
-      data.data ||
-      {};
-
-
     const title =
-      notification.title ||
       data.title ||
-      dataPayload.title ||
+      data.notification?.title ||
       "Hydro Farm";
 
 
     const body =
-      notification.body ||
       data.body ||
+      data.notification?.body ||
       data.message ||
-      dataPayload.body ||
-      dataPayload.message ||
       "يوجد تنبيه جديد في البيت المحمي";
 
 
     const severity =
       String(
         data.severity ||
-        dataPayload.severity ||
         "INFO"
       ).toUpperCase();
-
-
-    const url =
-      data.url ||
-      dataPayload.url ||
-      "./";
 
 
     const options = {
@@ -299,26 +286,24 @@ self.addEventListener(
 
       tag:
         data.tag ||
-        dataPayload.tag ||
         "hydro-farm-alert",
 
       renotify:
         true,
 
+      requireInteraction:
+        severity === "HIGH" ||
+        severity === "CRITICAL",
+
       data: {
 
         url:
-          url,
+          data.url ||
+          "./",
 
         greenhouse:
           data.greenhouse ||
-          dataPayload.greenhouse ||
           "GH001",
-
-        type:
-          data.type ||
-          dataPayload.type ||
-          "ALERT",
 
         severity:
           severity
@@ -328,24 +313,18 @@ self.addEventListener(
     };
 
 
-    if(
-      severity === "HIGH" ||
-      severity === "CRITICAL"
-    ){
-
-      options.requireInteraction =
-        true;
-
-    }
+    console.log(
+      "Hydro SW PUSH:",
+      data
+    );
 
 
     event.waitUntil(
 
-      self.registration
-        .showNotification(
-          title,
-          options
-        )
+      self.registration.showNotification(
+        title,
+        options
+      )
 
     );
 
@@ -364,76 +343,57 @@ self.addEventListener(
     event.notification.close();
 
 
-    const targetUrl =
+    const url =
       event.notification?.data?.url ||
       "./";
 
 
     event.waitUntil(
 
-      self.clients
-        .matchAll(
-          {
-            type: "window",
-            includeUncontrolled: true
-          }
-        )
-        .then(
-          clients => {
+      self.clients.matchAll({
 
-            /*
-              فتح التطبيق الموجود مسبقًا
-            */
+        type:
+          "window",
 
-            for(
-              const client of clients
-            ){
+        includeUncontrolled:
+          true
 
-              if(
-                "focus" in client
-              ){
+      })
 
-                client.focus();
+      .then(
+        clients => {
 
-                /*
-                  إرسال رسالة إلى التطبيق
-                */
+          for (
+            const client
+            of clients
+          ) {
 
-                client.postMessage({
+            if (
+              "focus"
+              in client
+            ) {
 
-                  type:
-                    "HYDRO_NOTIFICATION_CLICK",
+              client.focus();
 
-                  url:
-                    targetUrl
-
-                });
-
-
-                return client;
-
-              }
-
-            }
-
-
-            /*
-              فتح التطبيق إذا لم يكن موجودًا
-            */
-
-            if(
-              self.clients.openWindow
-            ){
-
-              return self.clients
-                .openWindow(
-                  targetUrl
-                );
+              return client;
 
             }
 
           }
-        )
+
+
+          if (
+            self.clients.openWindow
+          ) {
+
+            return self.clients.openWindow(
+              url
+            );
+
+          }
+
+        }
+      )
 
     );
 
@@ -442,16 +402,24 @@ self.addEventListener(
 
 
 /* =========================================================
-   NOTIFICATION CLOSE
+   MESSAGE FROM APP
 ========================================================= */
 
 self.addEventListener(
-  "notificationclose",
+  "message",
   event => {
 
-    console.log(
-      "Hydro Farm notification closed"
-    );
+    if (
+      event.data?.type ===
+      "HYDRO_DEBUG"
+    ) {
+
+      console.log(
+        "Hydro SW:",
+        event.data.message
+      );
+
+    }
 
   }
 );
