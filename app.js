@@ -1,15 +1,11 @@
 /* =========================================================
    HYDRO FARM
-   APP.JS - PHASE 2 STABLE
-   HiveMQ Cloud + GH001
-   MQTT Telemetry + Control
-   AUTO / MANUAL
-   Navigation + Alerts + Charts
+   MQTT + UI + DEBUG
 ========================================================= */
 
 
 /* =========================================================
-   MQTT CONFIGURATION
+   MQTT CONFIG
 ========================================================= */
 
 const MQTT_CONFIG = {
@@ -30,7 +26,7 @@ const MQTT_CONFIG = {
 
 
 /* =========================================================
-   MQTT TOPICS
+   TOPICS
 ========================================================= */
 
 const TOPICS = {
@@ -54,81 +50,145 @@ const TOPICS = {
 
 
 /* =========================================================
-   APPLICATION STATE
+   STATE
 ========================================================= */
 
 let mqttClient = null;
 
 let currentMode = "AUTO";
 
-let lastTelemetryTime = 0;
 
 let sensorData = {
 
     temperature: null,
-
     humidity: null,
-
     waterTemperature: null,
-
     waterLevel: null,
-
     ec: null,
-
     ph: null,
 
     pump: 0,
-
     fan: 0,
-
     padCooling: 0
 
 };
 
 
-/* =========================================================
-   HISTORY
-========================================================= */
-
 const history = {
 
     temperature: [],
-
-    level: [],
-
-    timestamps: []
+    level: []
 
 };
 
-const MAX_HISTORY = 60;
+
+/* =========================================================
+   DOM
+========================================================= */
+
+const $ = id =>
+    document.getElementById(id);
 
 
 /* =========================================================
-   DOM HELPER
+   DEBUG SYSTEM
 ========================================================= */
 
-function $(id) {
+function hydroDebug(
+    message,
+    type = "info"
+) {
 
-    return document.getElementById(id);
+    console.log(
+        "[HYDRO]",
+        message
+    );
+
+
+    window.dispatchEvent(
+
+        new CustomEvent(
+            "hydro-debug",
+            {
+
+                detail: {
+
+                    source:
+                        "APP",
+
+                    message:
+                        String(message),
+
+                    type:
+                        type,
+
+                    time:
+                        new Date()
+                            .toLocaleTimeString()
+
+                }
+
+            }
+
+        )
+
+    );
 
 }
 
 
 /* =========================================================
-   SET TEXT
+   SHOW DEBUG MESSAGE
 ========================================================= */
 
-function setText(id, value) {
+window.addEventListener(
+    "hydro-debug",
+    event => {
 
-    const element = $(id);
+        const detail =
+            event.detail;
 
-    if (element) {
 
-        element.textContent = value;
+        const box =
+            $("debugConsole");
+
+
+        if(!box)
+            return;
+
+
+        const line =
+            document.createElement(
+                "div"
+            );
+
+
+        line.className =
+            "debug-line " +
+            (detail.type || "info");
+
+
+        line.textContent =
+            `[${detail.time}] ${detail.source}: ${detail.message}`;
+
+
+        box.prepend(
+            line
+        );
+
+
+        while(
+            box.children.length > 50
+        ) {
+
+            box.removeChild(
+                box.lastElementChild
+            );
+
+        }
 
     }
-
-}
+);
 
 
 /* =========================================================
@@ -137,28 +197,29 @@ function setText(id, value) {
 
 function showToast(message) {
 
-    const toast = $("toast");
+    const toast =
+        $("toast");
 
-    if (!toast) {
 
-        console.log("TOAST:", message);
-
+    if(!toast)
         return;
 
-    }
 
-    toast.textContent = message;
+    toast.textContent =
+        message;
 
-    toast.classList.add("show");
 
-    clearTimeout(
-        showToast.timer
+    toast.classList.add(
+        "show"
     );
 
-    showToast.timer = setTimeout(
+
+    setTimeout(
         () => {
 
-            toast.classList.remove("show");
+            toast.classList.remove(
+                "show"
+            );
 
         },
         2500
@@ -173,128 +234,70 @@ function showToast(message) {
 
 function setupNavigation() {
 
-    const pages =
-        document.querySelectorAll(".page");
-
-    /*
-       ندعم أكثر من شكل للـ navigation
-    */
-
-    let buttons =
+    const buttons =
         document.querySelectorAll(
-            "nav button[data-page]"
+            "[data-page]"
         );
 
-    /*
-       إذا كانت النسخة تستعمل nav-button
-    */
 
-    if (!buttons.length) {
-
-        buttons =
-            document.querySelectorAll(
-                ".nav-button"
-            );
-
-    }
+    const pages =
+        document.querySelectorAll(
+            ".page"
+        );
 
 
-    buttons.forEach(button => {
+    buttons.forEach(
+        button => {
 
-        button.addEventListener(
-            "click",
-            () => {
+            button.addEventListener(
+                "click",
+                () => {
 
-                const pageName =
-                    button.dataset.page;
-
-                if (!pageName)
-                    return;
+                    const page =
+                        button.dataset.page;
 
 
-                pages.forEach(page => {
+                    pages.forEach(
+                        item =>
+                            item.classList.remove(
+                                "active"
+                            )
+                    );
 
-                    page.classList.remove(
+
+                    const target =
+                        $(page);
+
+
+                    if(target)
+                        target.classList.add(
+                            "active"
+                        );
+
+
+                    buttons.forEach(
+                        item =>
+                            item.classList.remove(
+                                "active"
+                            )
+                    );
+
+
+                    button.classList.add(
                         "active"
                     );
 
-                });
 
-
-                const target =
-                    $(pageName);
-
-                if (target) {
-
-                    target.classList.add(
-                        "active"
+                    window.scrollTo(
+                        0,
+                        0
                     );
 
                 }
-
-
-                buttons.forEach(item => {
-
-                    item.classList.remove(
-                        "active"
-                    );
-
-                });
-
-
-                button.classList.add(
-                    "active"
-                );
-
-
-                window.scrollTo(
-                    {
-                        top: 0,
-                        behavior: "smooth"
-                    }
-                );
-
-            }
-        );
-
-    });
-
-}
-
-
-/* =========================================================
-   FIND MQTT PASSWORD FIELD
-========================================================= */
-
-function getMQTTPassword() {
-
-    const fields = [
-
-        "mqttPassword",
-
-        "mqttPass",
-
-        "password",
-
-        "mqtt_password"
-
-    ];
-
-
-    for (const id of fields) {
-
-        const element = $(id);
-
-        if (element && element.value) {
-
-            return element.value.trim();
+            );
 
         }
-
-    }
-
-
-    return "";
+    );
 
 }
 
@@ -303,13 +306,12 @@ function getMQTTPassword() {
    MQTT STATUS
 ========================================================= */
 
-function setMQTTStatus(connected) {
+function setMQTTStatus(
+    connected
+) {
 
     const dot =
         $("mqttDot");
-
-    const headerDot =
-        $("headerDot");
 
     const state =
         $("mqttState");
@@ -323,42 +325,28 @@ function setMQTTStatus(connected) {
     const esp =
         $("espStatus");
 
-    const headerStatus =
-        $("headerStatus");
-
     const alertConnection =
         $("alertConnection");
 
 
-    if (connected) {
+    if(connected) {
 
         dot?.classList.add(
             "online"
         );
 
 
-        headerDot?.classList.remove(
-            "offline"
-        );
-
-        headerDot?.classList.add(
-            "online"
-        );
+        if(state)
+            state.textContent =
+                "النظام متصل";
 
 
-        setText(
-            "mqttState",
-            "النظام متصل"
-        );
+        if(sub)
+            sub.textContent =
+                "ESP32 • MQTT • Online";
 
 
-        setText(
-            "mqttSub",
-            "ESP32 • MQTT • Online"
-        );
-
-
-        if (status) {
+        if(status) {
 
             status.textContent =
                 "متصل";
@@ -369,7 +357,7 @@ function setMQTTStatus(connected) {
         }
 
 
-        if (esp) {
+        if(esp) {
 
             esp.textContent =
                 "Online";
@@ -380,79 +368,61 @@ function setMQTTStatus(connected) {
         }
 
 
-        setText(
-            "headerStatus",
-            "Online"
+        if(alertConnection)
+            alertConnection.textContent =
+                "اتصال MQTT ناجح";
+
+
+        hydroDebug(
+            "MQTT Connected",
+            "success"
         );
 
-
-        setText(
-            "alertConnection",
-            "اتصال MQTT ناجح"
-        );
-
-    }
-
-    else {
+    } else {
 
         dot?.classList.remove(
             "online"
         );
 
 
-        headerDot?.classList.remove(
-            "online"
-        );
+        if(state)
+            state.textContent =
+                "النظام غير متصل";
 
 
-        headerDot?.classList.add(
-            "offline"
-        );
+        if(sub)
+            sub.textContent =
+                "ESP32 • MQTT • Offline";
 
 
-        setText(
-            "mqttState",
-            "النظام غير متصل"
-        );
-
-
-        setText(
-            "mqttSub",
-            "ESP32 • MQTT • Offline"
-        );
-
-
-        if (status) {
+        if(status) {
 
             status.textContent =
                 "غير متصل";
 
-            status.className =
-                "";
+            status.className = "";
 
         }
 
 
-        if (esp) {
+        if(esp) {
 
             esp.textContent =
                 "Offline";
 
-            esp.className =
-                "";
+            esp.className = "";
 
         }
 
 
-        setText(
-            "headerStatus",
-            "Offline"
-        );
+        if(alertConnection)
+            alertConnection.textContent =
+                "في انتظار اتصال ESP32";
 
 
-        setText(
-            "alertConnection",
-            "في انتظار اتصال ESP32"
+        hydroDebug(
+            "MQTT Offline",
+            "warning"
         );
 
     }
@@ -461,23 +431,26 @@ function setMQTTStatus(connected) {
 
 
 /* =========================================================
-   CONNECT MQTT
+   MQTT CONNECT
 ========================================================= */
 
 function connectMQTT() {
 
-    if (
+    if(
         typeof mqtt ===
         "undefined"
     ) {
+
+        hydroDebug(
+            "مكتبة MQTT غير موجودة",
+            "error"
+        );
+
 
         showToast(
             "مكتبة MQTT غير موجودة"
         );
 
-        console.error(
-            "MQTT.js library is not loaded."
-        );
 
         return;
 
@@ -485,56 +458,51 @@ function connectMQTT() {
 
 
     const password =
-        getMQTTPassword();
+        $("mqttPassword")?.value.trim();
 
 
-    if (!password) {
+    if(!password) {
+
+        hydroDebug(
+            "كلمة مرور HiveMQ غير موجودة",
+            "warning"
+        );
+
 
         showToast(
             "أدخل كلمة مرور HiveMQ"
         );
+
 
         return;
 
     }
 
 
-    /*
-       إغلاق الاتصال السابق
-    */
-
-    if (mqttClient) {
+    if(mqttClient) {
 
         try {
 
-            mqttClient.end(true);
+            mqttClient.end(
+                true
+            );
 
-        }
-        catch (error) {
+        } catch(e) {}
 
-            console.warn(error);
-
-        }
-
-        mqttClient = null;
+        mqttClient =
+            null;
 
     }
 
 
-    showToast(
-        "جاري الاتصال بـ HiveMQ..."
+    hydroDebug(
+        "جاري الاتصال بـ HiveMQ...",
+        "info"
     );
 
 
     const url =
         `wss://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/mqtt`;
-
-
-    const clientId =
-        "hydro-web-" +
-        Math.random()
-            .toString(16)
-            .substring(2);
 
 
     mqttClient =
@@ -549,7 +517,10 @@ function connectMQTT() {
                     password,
 
                 clientId:
-                    clientId,
+                    "hydro-web-" +
+                    Math.random()
+                        .toString(16)
+                        .substring(2),
 
                 clean:
                     true,
@@ -558,27 +529,15 @@ function connectMQTT() {
                     3000,
 
                 connectTimeout:
-                    10000,
-
-                keepalive:
-                    30
+                    10000
 
             }
         );
 
 
-    /* =====================================================
-       CONNECT
-    ===================================================== */
-
     mqttClient.on(
         "connect",
         () => {
-
-            console.log(
-                "MQTT CONNECTED"
-            );
-
 
             setMQTTStatus(
                 true
@@ -596,16 +555,13 @@ function connectMQTT() {
     );
 
 
-    /* =====================================================
-       RECONNECT
-    ===================================================== */
-
     mqttClient.on(
         "reconnect",
         () => {
 
-            console.log(
-                "MQTT reconnecting..."
+            hydroDebug(
+                "MQTT reconnecting...",
+                "warning"
             );
 
             setMQTTStatus(
@@ -615,19 +571,11 @@ function connectMQTT() {
         }
     );
 
-
-    /* =====================================================
-       CLOSE
-    ===================================================== */
 
     mqttClient.on(
         "close",
         () => {
 
-            console.log(
-                "MQTT connection closed"
-            );
-
             setMQTTStatus(
                 false
             );
@@ -635,23 +583,27 @@ function connectMQTT() {
         }
     );
 
-
-    /* =====================================================
-       ERROR
-    ===================================================== */
 
     mqttClient.on(
         "error",
         error => {
 
             console.error(
-                "MQTT ERROR:",
                 error
             );
+
+
+            hydroDebug(
+                "MQTT Error: " +
+                error.message,
+                "error"
+            );
+
 
             setMQTTStatus(
                 false
             );
+
 
             showToast(
                 "خطأ في اتصال MQTT"
@@ -660,10 +612,6 @@ function connectMQTT() {
         }
     );
 
-
-    /* =====================================================
-       MESSAGE
-    ===================================================== */
 
     mqttClient.on(
         "message",
@@ -674,12 +622,12 @@ function connectMQTT() {
 
 
 /* =========================================================
-   SUBSCRIBE MQTT
+   SUBSCRIBE
 ========================================================= */
 
 function subscribeMQTT() {
 
-    if (
+    if(
         !mqttClient ||
         !mqttClient.connected
     )
@@ -705,26 +653,22 @@ function subscribeMQTT() {
 
             mqttClient.subscribe(
                 topic,
-                {
-                    qos: 1
-                },
                 error => {
 
-                    if (error) {
+                    if(error) {
 
-                        console.error(
-                            "Subscribe error:",
+                        hydroDebug(
+                            "Subscribe error: " +
                             topic,
-                            error
+                            "error"
                         );
 
-                    }
+                    } else {
 
-                    else {
-
-                        console.log(
-                            "Subscribed:",
-                            topic
+                        hydroDebug(
+                            "Subscribed: " +
+                            topic,
+                            "success"
                         );
 
                     }
@@ -739,7 +683,7 @@ function subscribeMQTT() {
 
 
 /* =========================================================
-   MQTT MESSAGE HANDLER
+   MQTT MESSAGE
 ========================================================= */
 
 function handleMQTTMessage(
@@ -751,8 +695,15 @@ function handleMQTTMessage(
         message.toString();
 
 
+    hydroDebug(
+        "MQTT ← " +
+        topic,
+        "info"
+    );
+
+
     console.log(
-        "MQTT MESSAGE:",
+        "MQTT:",
         topic,
         text
     );
@@ -764,24 +715,24 @@ function handleMQTTMessage(
     try {
 
         data =
-            JSON.parse(text);
+            JSON.parse(
+                text
+            );
 
-    }
-    catch (error) {
+    } catch(error) {
 
-        console.warn(
-            "Invalid JSON:",
-            text
+        hydroDebug(
+            "JSON غير صالح",
+            "error"
         );
+
 
         return;
 
     }
 
 
-    /* TELEMETRY */
-
-    if (
+    if(
         topic ===
         TOPICS.telemetry
     ) {
@@ -790,14 +741,13 @@ function handleMQTTMessage(
             data
         );
 
+
         return;
 
     }
 
 
-    /* STATUS */
-
-    if (
+    if(
         topic ===
         TOPICS.status
     ) {
@@ -806,14 +756,13 @@ function handleMQTTMessage(
             data
         );
 
+
         return;
 
     }
 
 
-    /* ALERT */
-
-    if (
+    if(
         topic ===
         TOPICS.alerts
     ) {
@@ -822,14 +771,13 @@ function handleMQTTMessage(
             data
         );
 
+
         return;
 
     }
 
 
-    /* ACTUATOR */
-
-    if (
+    if(
         topic.startsWith(
             TOPICS.actuatorState
         )
@@ -846,125 +794,12 @@ function handleMQTTMessage(
 
 
 /* =========================================================
-   NUMBER
-========================================================= */
-
-function numberValue(value) {
-
-    if (
-        value === null ||
-        value === undefined ||
-        value === ""
-    ) {
-
-        return null;
-
-    }
-
-
-    const number =
-        Number(value);
-
-
-    if (
-        Number.isNaN(number)
-    ) {
-
-        return null;
-
-    }
-
-
-    return number;
-
-}
-
-
-/* =========================================================
-   NORMALIZE STATE
-========================================================= */
-
-function normalizeState(value) {
-
-    if (
-        value === true ||
-        value === 1 ||
-        value === "1" ||
-        String(value).toUpperCase() === "ON" ||
-        String(value).toUpperCase() === "TRUE"
-    ) {
-
-        return 1;
-
-    }
-
-
-    return 0;
-
-}
-
-
-/* =========================================================
-   WATER LEVEL
-========================================================= */
-
-function convertLevel(value) {
-
-    const n =
-        numberValue(value);
-
-
-    if (n === null)
-        return null;
-
-
-    /*
-       0 - 100 = percentage
-    */
-
-    if (
-        n >= 0 &&
-        n <= 100
-    ) {
-
-        return n;
-
-    }
-
-
-    /*
-       ADC 0 - 4095
-    */
-
-    if (
-        n >= 0 &&
-        n <= 4095
-    ) {
-
-        return (
-            n /
-            4095
-        ) * 100;
-
-    }
-
-
-    return null;
-
-}
-
-
-/* =========================================================
    TELEMETRY
 ========================================================= */
 
-function updateTelemetry(data) {
-
-    console.log(
-        "Telemetry:",
-        data
-    );
-
+function updateTelemetry(
+    data
+) {
 
     sensorData.temperature =
         numberValue(
@@ -1013,76 +848,36 @@ function updateTelemetry(data) {
         );
 
 
-    if (
+    if(
         data.pump !== undefined
-    ) {
-
+    )
         sensorData.pump =
             normalizeState(
                 data.pump
             );
 
-    }
 
-
-    if (
+    if(
         data.fan !== undefined
-    ) {
-
+    )
         sensorData.fan =
             normalizeState(
                 data.fan
             );
 
-    }
 
-
-    if (
+    if(
         data.padCooling !== undefined
-    ) {
-
+    )
         sensorData.padCooling =
             normalizeState(
                 data.padCooling
             );
 
-    }
-
-
-    /*
-       بعض ESP32 قد يرسل mode
-    */
-
-    if (data.mode) {
-
-        const mode =
-            String(
-                data.mode
-            ).toUpperCase();
-
-
-        if (
-            mode === "AUTO" ||
-            mode === "MANUAL"
-        ) {
-
-            currentMode =
-                mode;
-
-        }
-
-    }
-
-
-    lastTelemetryTime =
-        Date.now();
-
 
     updateInterface();
 
-
     addHistory();
-
 
     checkAlerts();
 
@@ -1090,12 +885,99 @@ function updateTelemetry(data) {
 
 
 /* =========================================================
-   UPDATE INTERFACE
+   NUMBER
+========================================================= */
+
+function numberValue(
+    value
+) {
+
+    if(
+        value === null ||
+        value === undefined ||
+        value === ""
+    )
+        return null;
+
+
+    const n =
+        Number(value);
+
+
+    return Number.isNaN(n)
+        ? null
+        : n;
+
+}
+
+
+/* =========================================================
+   LEVEL
+========================================================= */
+
+function convertLevel(
+    value
+) {
+
+    const n =
+        numberValue(
+            value
+        );
+
+
+    if(n === null)
+        return null;
+
+
+    if(
+        n >= 0 &&
+        n <= 100
+    )
+        return n;
+
+
+    if(
+        n >= 0 &&
+        n <= 4095
+    )
+        return Math.round(
+            n / 4095 * 100
+        );
+
+
+    return null;
+
+}
+
+
+/* =========================================================
+   STATE
+========================================================= */
+
+function normalizeState(
+    value
+) {
+
+    if(
+        value === true ||
+        value === 1 ||
+        value === "1" ||
+        value === "ON" ||
+        value === "on"
+    )
+        return 1;
+
+
+    return 0;
+
+}
+
+
+/* =========================================================
+   UI
 ========================================================= */
 
 function updateInterface() {
-
-    /* TEMPERATURE */
 
     setText(
         "temp",
@@ -1106,30 +988,12 @@ function updateInterface() {
 
 
     setText(
-        "tempStatus",
-        temperatureStatus()
-    );
-
-
-    /* HUMIDITY */
-
-    setText(
         "hum",
         formatPercent(
             sensorData.humidity
         )
     );
 
-
-    setText(
-        "humStatus",
-        sensorData.humidity === null
-            ? "انتظار البيانات"
-            : "قراءة مباشرة"
-    );
-
-
-    /* WATER TEMPERATURE */
 
     setText(
         "wt",
@@ -1140,32 +1004,12 @@ function updateInterface() {
 
 
     setText(
-        "wtStatus",
-        sensorData.waterTemperature === null
-            ? "انتظار البيانات"
-            : "قراءة مباشرة"
-    );
-
-
-    /* LEVEL */
-
-    setText(
         "level",
         formatPercent(
             sensorData.waterLevel
         )
     );
 
-
-    setText(
-        "levelStatus",
-        sensorData.waterLevel === null
-            ? "انتظار البيانات"
-            : "قراءة مباشرة"
-    );
-
-
-    /* EC */
 
     setText(
         "ec",
@@ -1176,32 +1020,12 @@ function updateInterface() {
 
 
     setText(
-        "ecStatus",
-        sensorData.ec === null
-            ? "انتظار البيانات"
-            : "mS/cm"
-    );
-
-
-    /* PH */
-
-    setText(
         "ph",
         sensorData.ph === null
             ? "--"
             : sensorData.ph.toFixed(2)
     );
 
-
-    setText(
-        "phStatus",
-        sensorData.ph === null
-            ? "انتظار البيانات"
-            : "قراءة مباشرة"
-    );
-
-
-    /* DATA PAGE */
 
     setText(
         "dataWt",
@@ -1235,8 +1059,6 @@ function updateInterface() {
     );
 
 
-    /* SYSTEM */
-
     setText(
         "systemTemp",
         formatTemperature(
@@ -1261,127 +1083,61 @@ function updateInterface() {
     );
 
 
-    /* CHART CURRENT VALUE */
-
-    setText(
-        "cv",
-        formatTemperature(
-            sensorData.temperature
-        )
-    );
-
-
     updateStates();
 
 }
 
 
 /* =========================================================
-   TEMPERATURE STATUS
+   FORMAT
 ========================================================= */
 
-function temperatureStatus() {
+function formatTemperature(
+    value
+) {
 
-    if (
-        sensorData.temperature === null
-    ) {
+    return value === null
+        ? "--.-°C"
+        : Number(value).toFixed(1) +
+          "°C";
 
-        return "انتظار البيانات";
-
-    }
-
-
-    const warning =
-        Number(
-            localStorage.getItem(
-                "hydro_warning_temp"
-            ) || 30
-        );
+}
 
 
-    const critical =
-        Number(
-            localStorage.getItem(
-                "hydro_critical_temp"
-            ) || 33
-        );
+function formatPercent(
+    value
+) {
 
-
-    if (
-        sensorData.temperature >=
-        critical
-    ) {
-
-        return "حرارة حرجة";
-
-    }
-
-
-    if (
-        sensorData.temperature >=
-        warning
-    ) {
-
-        return "تحذير";
-
-    }
-
-
-    return "طبيعي";
+    return value === null
+        ? "--%"
+        : Number(value).toFixed(0) +
+          "%";
 
 }
 
 
 /* =========================================================
-   FORMAT TEMPERATURE
+   SET TEXT
 ========================================================= */
 
-function formatTemperature(value) {
+function setText(
+    id,
+    value
+) {
 
-    if (
-        value === null ||
-        value === undefined
-    ) {
-
-        return "--.-°C";
-
-    }
+    const element =
+        $(id);
 
 
-    return (
-        Number(value).toFixed(1)
-        + "°C"
-    );
+    if(element)
+        element.textContent =
+            value;
 
 }
 
 
 /* =========================================================
-   FORMAT PERCENT
-========================================================= */
-
-function formatPercent(value) {
-
-    if (
-        value === null ||
-        value === undefined
-    ) {
-
-        return "--%";
-
-    }
-
-
-    return (
-        Number(value).toFixed(0)
-        + "%"
-    );
-
-}
-
-
-/* =========================================================
-   UPDATE DEVICE STATES
+   STATES
 ========================================================= */
 
 function updateStates() {
@@ -1427,6 +1183,18 @@ function updateStates() {
 
 
     setText(
+        "systemFanState",
+        currentMode
+    );
+
+
+    setText(
+        "systemPumpMode",
+        currentMode
+    );
+
+
+    setText(
         "pumpMode",
         currentMode
     );
@@ -1445,20 +1213,6 @@ function updateStates() {
 
 
     setText(
-        "systemPumpMode",
-        currentMode
-    );
-
-
-    setText(
-        "systemFanState",
-        currentMode === "AUTO"
-            ? "تشغيل تلقائي"
-            : "تحكم يدوي"
-    );
-
-
-    setText(
         "homeMode",
         currentMode
     );
@@ -1469,17 +1223,11 @@ function updateStates() {
         currentMode
     );
 
-
-    setText(
-        "mode",
-        currentMode
-    );
-
 }
 
 
 /* =========================================================
-   SWITCH VISUAL
+   SWITCH
 ========================================================= */
 
 function setSwitch(
@@ -1491,37 +1239,27 @@ function setSwitch(
         $(id);
 
 
-    if (!button)
+    if(!button)
         return;
 
 
-    if (state) {
-
-        button.classList.add(
-            "on"
-        );
-
-    }
-    else {
-
-        button.classList.remove(
-            "on"
-        );
-
-    }
+    button.classList.toggle(
+        "on",
+        Boolean(state)
+    );
 
 }
 
 
 /* =========================================================
-   DEVICE CONTROL
+CONTROL
 ========================================================= */
 
 function controlDevice(
     device
 ) {
 
-    if (
+    if(
         !mqttClient ||
         !mqttClient.connected
     ) {
@@ -1530,12 +1268,13 @@ function controlDevice(
             "MQTT غير متصل"
         );
 
+
         return;
 
     }
 
 
-    if (
+    if(
         currentMode !==
         "MANUAL"
     ) {
@@ -1544,60 +1283,32 @@ function controlDevice(
             "غيّر الوضع إلى MANUAL أولاً"
         );
 
+
         return;
 
     }
 
 
-    let currentState = 0;
+    let current = 0;
 
 
-    if (
-        device === "pump"
-    ) {
-
-        currentState =
+    if(device === "pump")
+        current =
             sensorData.pump;
 
-    }
 
-
-    else if (
-        device === "fan"
-    ) {
-
-        currentState =
+    if(device === "fan")
+        current =
             sensorData.fan;
 
-    }
 
-
-    else if (
-        device === "pad_cooling"
-    ) {
-
-        currentState =
+    if(device === "pad_cooling")
+        current =
             sensorData.padCooling;
-
-    }
-
-
-    else {
-
-        console.warn(
-            "Unknown device:",
-            device
-        );
-
-        return;
-
-    }
 
 
     const newState =
-        currentState
-            ? 0
-            : 1;
+        current ? 0 : 1;
 
 
     const topic =
@@ -1605,23 +1316,20 @@ function controlDevice(
 
 
     const payload =
-        JSON.stringify(
-            {
+        JSON.stringify({
 
-                state:
-                    newState,
+            state:
+                newState,
 
-                mode:
-                    "MANUAL"
+            mode:
+                "MANUAL"
 
-            }
-        );
+        });
 
 
-    console.log(
-        "MQTT CONTROL:",
-        topic,
-        payload
+    hydroDebug(
+        `إرسال ${device}: ${newState ? "ON" : "OFF"}`,
+        "info"
     );
 
 
@@ -1633,54 +1341,37 @@ function controlDevice(
         },
         error => {
 
-            if (error) {
+            if(error) {
 
-                console.error(
-                    "Publish error:",
-                    error
+                hydroDebug(
+                    "فشل إرسال الأمر",
+                    "error"
                 );
+
 
                 showToast(
                     "فشل إرسال الأمر"
                 );
+
 
                 return;
 
             }
 
 
-            /*
-               تحديث مؤقت للواجهة
-            */
-
-            if (
-                device === "pump"
-            ) {
-
+            if(device === "pump")
                 sensorData.pump =
                     newState;
 
-            }
 
-
-            if (
-                device === "fan"
-            ) {
-
+            if(device === "fan")
                 sensorData.fan =
                     newState;
 
-            }
 
-
-            if (
-                device === "pad_cooling"
-            ) {
-
+            if(device === "pad_cooling")
                 sensorData.padCooling =
                     newState;
-
-            }
 
 
             updateInterface();
@@ -1697,50 +1388,44 @@ function controlDevice(
 
 
 /* =========================================================
-   CONTROL BUTTONS
+   CONTROLS
 ========================================================= */
 
 function setupControls() {
 
-    /*
-       الشكل الأساسي:
-       .sw[data-device]
-    */
+    document
+        .querySelectorAll(
+            "[data-device]"
+        )
+        .forEach(
+            button => {
 
-    const controls =
-        document.querySelectorAll(
-            ".sw[data-device]"
+                button.addEventListener(
+                    "click",
+                    () => {
+
+                        controlDevice(
+                            button.dataset.device
+                        );
+
+                    }
+                );
+
+            }
         );
-
-
-    controls.forEach(
-        button => {
-
-            button.addEventListener(
-                "click",
-                () => {
-
-                    controlDevice(
-                        button.dataset.device
-                    );
-
-                }
-            );
-
-        }
-    );
 
 }
 
 
 /* =========================================================
-   MODE CONTROL
+   MODE
 ========================================================= */
 
 function toggleMode() {
 
     currentMode =
-        currentMode === "AUTO"
+        currentMode ===
+        "AUTO"
             ? "MANUAL"
             : "AUTO";
 
@@ -1748,45 +1433,36 @@ function toggleMode() {
     updateStates();
 
 
-    if (
+    if(
         mqttClient &&
         mqttClient.connected
     ) {
 
-        const topic =
-            `${TOPICS.control}/mode/set`;
-
-
-        const payload =
-            JSON.stringify(
-                {
-                    mode:
-                        currentMode
-                }
-            );
-
-
         mqttClient.publish(
-            topic,
-            payload,
+
+            `${TOPICS.control}/mode/set`,
+
+            JSON.stringify({
+
+                mode:
+                    currentMode
+
+            }),
+
             {
                 qos: 1
-            },
-            error => {
-
-                if (error) {
-
-                    console.error(
-                        "Mode publish error:",
-                        error
-                    );
-
-                }
-
             }
+
         );
 
     }
+
+
+    hydroDebug(
+        "Mode → " +
+        currentMode,
+        "info"
+    );
 
 
     showToast(
@@ -1797,47 +1473,30 @@ function toggleMode() {
 
 
 /* =========================================================
-   STATUS MESSAGE
+   STATUS
 ========================================================= */
 
-function handleStatus(data) {
+function handleStatus(
+    data
+) {
 
-    console.log(
-        "ESP32 STATUS:",
-        data
-    );
+    if(data.mode) {
 
-
-    if (data.mode) {
-
-        const mode =
+        currentMode =
             String(
                 data.mode
             ).toUpperCase();
 
 
-        if (
-            mode === "AUTO" ||
-            mode === "MANUAL"
-        ) {
-
+        if(
+            currentMode !==
+            "MANUAL"
+        )
             currentMode =
-                mode;
-
-            updateStates();
-
-        }
-
-    }
+                "AUTO";
 
 
-    if (
-        data.online === false
-    ) {
-
-        setMQTTStatus(
-            false
-        );
+        updateStates();
 
     }
 
@@ -1871,55 +1530,22 @@ function handleActuatorState(
         );
 
 
-    if (
-        device === "pump"
-    ) {
-
+    if(device === "pump")
         sensorData.pump =
             state;
 
-    }
 
-
-    if (
-        device === "fan"
-    ) {
-
+    if(device === "fan")
         sensorData.fan =
             state;
 
-    }
 
-
-    if (
-        device === "pad_cooling"
-    ) {
-
+    if(
+        device ===
+        "pad_cooling"
+    )
         sensorData.padCooling =
             state;
-
-    }
-
-
-    if (data.mode) {
-
-        const mode =
-            String(
-                data.mode
-            ).toUpperCase();
-
-
-        if (
-            mode === "AUTO" ||
-            mode === "MANUAL"
-        ) {
-
-            currentMode =
-                mode;
-
-        }
-
-    }
 
 
     updateInterface();
@@ -1928,10 +1554,12 @@ function handleActuatorState(
 
 
 /* =========================================================
-   ALERT FROM MQTT
+   ALERT
 ========================================================= */
 
-function handleAlert(data) {
+function handleAlert(
+    data
+) {
 
     const title =
         data.title ||
@@ -1941,7 +1569,7 @@ function handleAlert(data) {
     const body =
         data.body ||
         data.message ||
-        "يوجد تنبيه جديد";
+        "يوجد تنبيه";
 
 
     const severity =
@@ -1966,7 +1594,7 @@ function handleAlert(data) {
 
 
 /* =========================================================
-   ADD ALERT
+   ALERT UI
 ========================================================= */
 
 function addHydroAlert(
@@ -1979,7 +1607,7 @@ function addHydroAlert(
         $("alertsList");
 
 
-    if (!list)
+    if(!list)
         return;
 
 
@@ -1989,38 +1617,34 @@ function addHydroAlert(
         );
 
 
+    let icon = "🟢";
+
     let className =
         "good";
 
 
-    let icon =
-        "🟢";
-
-
-    if (
+    if(
         severity ===
         "WARNING"
     ) {
 
+        icon = "🟡";
+
         className =
             "warning";
-
-        icon =
-            "🟡";
 
     }
 
 
-    if (
+    if(
         severity === "HIGH" ||
         severity === "CRITICAL"
     ) {
 
+        icon = "🔴";
+
         className =
             "danger";
-
-        icon =
-            "🔴";
 
     }
 
@@ -2031,7 +1655,7 @@ function addHydroAlert(
 
     article.innerHTML = `
 
-        <span>${icon}</span>
+        <span>${escapeHTML(icon)}</span>
 
         <div>
 
@@ -2053,7 +1677,7 @@ function addHydroAlert(
     );
 
 
-    while (
+    while(
         list.children.length >
         20
     ) {
@@ -2068,33 +1692,30 @@ function addHydroAlert(
 
 
 /* =========================================================
-   ESCAPE HTML
+   ESCAPE
 ========================================================= */
 
-function escapeHTML(value) {
+function escapeHTML(
+    value
+) {
 
     return String(value)
-
         .replaceAll(
             "&",
             "&amp;"
         )
-
         .replaceAll(
             "<",
             "&lt;"
         )
-
         .replaceAll(
             ">",
             "&gt;"
         )
-
         .replaceAll(
             '"',
             "&quot;"
         )
-
         .replaceAll(
             "'",
             "&#039;"
@@ -2104,7 +1725,7 @@ function escapeHTML(value) {
 
 
 /* =========================================================
-   LOCAL ALERTS
+   ALERTS
 ========================================================= */
 
 function checkAlerts() {
@@ -2133,11 +1754,11 @@ function checkAlerts() {
         );
 
 
-    if (
+    if(
         sensorData.temperature !== null
     ) {
 
-        if (
+        if(
             sensorData.temperature >=
             critical
         ) {
@@ -2148,9 +1769,7 @@ function checkAlerts() {
                 "CRITICAL"
             );
 
-        }
-
-        else if (
+        } else if(
             sensorData.temperature >=
             warning
         ) {
@@ -2166,7 +1785,7 @@ function checkAlerts() {
     }
 
 
-    if (
+    if(
         sensorData.waterLevel !== null &&
         sensorData.waterLevel <= low
     ) {
@@ -2188,65 +1807,34 @@ function checkAlerts() {
 
 function addHistory() {
 
-    const now =
-        new Date();
-
-
-    if (
+    if(
         sensorData.temperature !== null
-    ) {
-
+    )
         history.temperature.push(
             sensorData.temperature
         );
 
-    }
 
-
-    if (
+    if(
         sensorData.waterLevel !== null
-    ) {
-
+    )
         history.level.push(
             sensorData.waterLevel
         );
 
-    }
 
-
-    history.timestamps.push(
-        now
-    );
-
-
-    while (
+    if(
         history.temperature.length >
-        MAX_HISTORY
-    ) {
-
+        30
+    )
         history.temperature.shift();
 
-    }
 
-
-    while (
+    if(
         history.level.length >
-        MAX_HISTORY
-    ) {
-
+        30
+    )
         history.level.shift();
-
-    }
-
-
-    while (
-        history.timestamps.length >
-        MAX_HISTORY
-    ) {
-
-        history.timestamps.shift();
-
-    }
 
 
     drawCharts();
@@ -2255,38 +1843,10 @@ function addHistory() {
 
 
 /* =========================================================
-DRAW ALL CHARTS
+   CHARTS
 ========================================================= */
 
 function drawCharts() {
-
-    drawChart(
-        "c1",
-        history.temperature,
-        15,
-        45
-    );
-
-
-    drawChart(
-        "c2",
-        history.temperature,
-        15,
-        45
-    );
-
-
-    drawChart(
-        "c3",
-        history.level,
-        0,
-        100
-    );
-
-
-    /*
-       دعم أسماء Canvas القديمة
-    */
 
     drawChart(
         "temperatureChart",
@@ -2306,10 +1866,6 @@ function drawCharts() {
 }
 
 
-/* =========================================================
-   DRAW CHART
-========================================================= */
-
 function drawChart(
     canvasId,
     values,
@@ -2321,7 +1877,7 @@ function drawChart(
         $(canvasId);
 
 
-    if (!canvas)
+    if(!canvas)
         return;
 
 
@@ -2329,15 +1885,10 @@ function drawChart(
         canvas.getBoundingClientRect();
 
 
-    const width =
-        Math.max(
-            rect.width,
-            280
-        );
-
-
-    const height =
-        150;
+    if(
+        rect.width <= 0
+    )
+        return;
 
 
     const dpr =
@@ -2346,11 +1897,13 @@ function drawChart(
 
 
     canvas.width =
-        width * dpr;
+        rect.width *
+        dpr;
 
 
     canvas.height =
-        height * dpr;
+        150 *
+        dpr;
 
 
     const ctx =
@@ -2369,6 +1922,14 @@ function drawChart(
     );
 
 
+    const width =
+        rect.width;
+
+
+    const height =
+        150;
+
+
     ctx.clearRect(
         0,
         0,
@@ -2376,8 +1937,6 @@ function drawChart(
         height
     );
 
-
-    /* GRID */
 
     ctx.strokeStyle =
         "#e8efed";
@@ -2387,7 +1946,7 @@ function drawChart(
         1;
 
 
-    for (
+    for(
         let i = 0;
         i < 5;
         i++
@@ -2396,42 +1955,31 @@ function drawChart(
         const y =
             10 +
             i *
-            (
-                (height - 20) /
-                4
-            );
+            ((height - 20) / 4);
 
 
         ctx.beginPath();
-
 
         ctx.moveTo(
             0,
             y
         );
 
-
         ctx.lineTo(
             width,
             y
         );
-
 
         ctx.stroke();
 
     }
 
 
-    if (
+    if(
         values.length < 2
-    ) {
-
+    )
         return;
 
-    }
-
-
-    /* LINE */
 
     ctx.strokeStyle =
         "#0b7a70";
@@ -2441,389 +1989,46 @@ function drawChart(
         2.5;
 
 
-    ctx.lineJoin =
-        "round";
-
-
-    ctx.lineCap =
-        "round";
-
-
     ctx.beginPath();
 
 
     values.forEach(
-        (value, index) => {
+        (value,index) => {
 
             const x =
                 index *
-                (
-                    width /
-                    (values.length - 1)
-                );
+                width /
+                (values.length - 1);
 
 
             const normalized =
-                Math.max(
-                    0,
-                    Math.min(
-                        1,
-                        (
-                            value - min
-                        ) /
-                        (
-                            max - min
-                        )
-                    )
-                );
+                (value - min) /
+                (max - min);
 
 
             const y =
                 height -
                 15 -
                 normalized *
-                (
-                    height - 30
-                );
+                (height - 30);
 
 
-            if (
-                index === 0
-            ) {
-
+            if(index === 0)
                 ctx.moveTo(
                     x,
                     y
                 );
-
-            }
-
-            else {
-
+            else
                 ctx.lineTo(
                     x,
                     y
                 );
-
-            }
 
         }
     );
 
 
     ctx.stroke();
-
-}
-
-
-/* =========================================================
-   SETTINGS
-========================================================= */
-
-function setupSettings() {
-
-    const pairs = [
-
-        [
-            "warningTemp",
-            "warningValue"
-        ],
-
-        [
-            "criticalTemp",
-            "criticalValue"
-        ],
-
-        [
-            "padTemp",
-            "padValue"
-        ],
-
-        [
-            "lowLevel",
-            "lowValue"
-        ],
-
-        [
-            "criticalLevel",
-            "criticalLevelValue"
-        ],
-
-
-        /*
-           دعم أسماء HTML القديمة
-        */
-
-        [
-            "fan",
-            "fo"
-        ],
-
-        [
-            "crit",
-            "fc"
-        ],
-
-        [
-            "pad",
-            "po"
-        ],
-
-        [
-            "low",
-            "lo"
-        ],
-
-        [
-            "critical",
-            "lc"
-        ]
-
-    ];
-
-
-    pairs.forEach(
-        ([inputId, outputId]) => {
-
-            const input =
-                $(inputId);
-
-
-            const output =
-                $(outputId);
-
-
-            if (
-                !input ||
-                !output
-            )
-                return;
-
-
-            input.addEventListener(
-                "input",
-                () => {
-
-                    output.textContent =
-                        input.value;
-
-                }
-            );
-
-        }
-    );
-
-
-    loadSettings();
-
-}
-
-
-/* =========================================================
-   SAVE SETTINGS
-========================================================= */
-
-function saveSettings() {
-
-    const warning =
-        getValue(
-            "warningTemp",
-            "fan"
-        );
-
-
-    const critical =
-        getValue(
-            "criticalTemp",
-            "crit"
-        );
-
-
-    const pad =
-        getValue(
-            "padTemp",
-            "pad"
-        );
-
-
-    const low =
-        getValue(
-            "lowLevel",
-            "low"
-        );
-
-
-    const criticalLevel =
-        getValue(
-            "criticalLevel",
-            "critical"
-        );
-
-
-    if (warning !== null) {
-
-        localStorage.setItem(
-            "hydro_warning_temp",
-            warning
-        );
-
-    }
-
-
-    if (critical !== null) {
-
-        localStorage.setItem(
-            "hydro_critical_temp",
-            critical
-        );
-
-    }
-
-
-    if (pad !== null) {
-
-        localStorage.setItem(
-            "hydro_pad_temp",
-            pad
-        );
-
-    }
-
-
-    if (low !== null) {
-
-        localStorage.setItem(
-            "hydro_low_level",
-            low
-        );
-
-    }
-
-
-    if (criticalLevel !== null) {
-
-        localStorage.setItem(
-            "hydro_critical_level",
-            criticalLevel
-        );
-
-    }
-
-
-    showToast(
-        "تم حفظ الإعدادات"
-    );
-
-}
-
-
-/* =========================================================
-   GET VALUE
-========================================================= */
-
-function getValue(
-    first,
-    second
-) {
-
-    const a =
-        $(first);
-
-
-    if (a)
-        return a.value;
-
-
-    const b =
-        $(second);
-
-
-    if (b)
-        return b.value;
-
-
-    return null;
-
-}
-
-
-/* =========================================================
-   LOAD SETTINGS
-========================================================= */
-
-function loadSettings() {
-
-    const map = [
-
-        [
-            "warningTemp",
-            "fan",
-            "hydro_warning_temp"
-        ],
-
-        [
-            "criticalTemp",
-            "crit",
-            "hydro_critical_temp"
-        ],
-
-        [
-            "padTemp",
-            "pad",
-            "hydro_pad_temp"
-        ],
-
-        [
-            "lowLevel",
-            "low",
-            "hydro_low_level"
-        ],
-
-        [
-            "criticalLevel",
-            "critical",
-            "hydro_critical_level"
-        ]
-
-    ];
-
-
-    map.forEach(
-        ([primary, fallback, key]) => {
-
-            const input =
-                $(primary) ||
-                $(fallback);
-
-
-            if (!input)
-                return;
-
-
-            const value =
-                localStorage.getItem(
-                    key
-                );
-
-
-            if (
-                value !== null
-            ) {
-
-                input.value =
-                    value;
-
-            }
-
-
-            input.dispatchEvent(
-                new Event(
-                    "input"
-                )
-            );
-
-        }
-    );
 
 }
 
@@ -2838,7 +2043,7 @@ function clearAlerts() {
         $("alertsList");
 
 
-    if (!list)
+    if(!list)
         return;
 
 
@@ -2873,326 +2078,254 @@ function clearAlerts() {
 
 
 /* =========================================================
-   RANGE BUTTONS
+   FCM DEBUG TEST
 ========================================================= */
 
-function setupRanges() {
+async function testFirebase() {
 
-    const selectors = [
-
-        ".range-buttons button",
-
-        ".ranges button"
-
-    ];
-
-
-    let buttons = [];
-
-
-    selectors.forEach(
-        selector => {
-
-            document
-                .querySelectorAll(selector)
-                .forEach(button => {
-
-                    if (
-                        !buttons.includes(
-                            button
-                        )
-                    ) {
-
-                        buttons.push(
-                            button
-                        );
-
-                    }
-
-                });
-
-        }
+    hydroDebug(
+        "بدء اختبار Firebase/FCM",
+        "info"
     );
 
 
-    buttons.forEach(
-        button => {
+    if(
+        !window.HydroFirebase
+    ) {
 
-            button.addEventListener(
-                "click",
-                () => {
+        hydroDebug(
+            "HydroFirebase غير موجود",
+            "error"
+        );
 
-                    buttons.forEach(
-                        b => {
 
-                            b.classList.remove(
-                                "selected"
-                            );
-
-                            b.classList.remove(
-                                "sel"
-                            );
-
-                        }
-                    );
-
-
-                    button.classList.add(
-                        "selected"
-                    );
-
-
-                    button.classList.add(
-                        "sel"
-                    );
-
-
-                    showToast(
-                        `الفترة: ${button.textContent}`
-                    );
-
-                }
-            );
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   MQTT BUTTON
-========================================================= */
-
-function setupMQTTButton() {
-
-    const buttons = [
-
-        $("mqttConnect"),
-
-        $("connectMQTT"),
-
-        $("mqttConnectButton")
-
-    ];
-
-
-    buttons.forEach(
-        button => {
-
-            if (!button)
-                return;
-
-
-            button.addEventListener(
-                "click",
-                connectMQTT
-            );
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   MODE BUTTON
-========================================================= */
-
-function setupModeButton() {
-
-    const buttons = [
-
-        $("modeButton"),
-
-        $("mode")
-
-    ];
-
-
-    buttons.forEach(
-        button => {
-
-            if (!button)
-                return;
-
-
-            button.addEventListener(
-                "click",
-                toggleMode
-            );
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   CLEAR BUTTON
-========================================================= */
-
-function setupClearButton() {
-
-    const buttons = [
-
-        $("clearAlerts"),
-
-        $("clear")
-
-    ];
-
-
-    buttons.forEach(
-        button => {
-
-            if (!button)
-                return;
-
-
-            button.addEventListener(
-                "click",
-                clearAlerts
-            );
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   SAVE BUTTON
-========================================================= */
-
-function setupSaveButton() {
-
-    const buttons = [
-
-        $("saveSettings"),
-
-        $("save")
-
-    ];
-
-
-    buttons.forEach(
-        button => {
-
-            if (!button)
-                return;
-
-
-            button.addEventListener(
-                "click",
-                saveSettings
-            );
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   CHECK ESP32 TIMEOUT
-========================================================= */
-
-setInterval(
-    () => {
-
-        if (
-            lastTelemetryTime === 0
-        )
-            return;
-
-
-        const elapsed =
-            Date.now() -
-            lastTelemetryTime;
-
-
-        /*
-           إذا لم تصل بيانات لمدة 30 ثانية
-        */
-
-        if (
-            elapsed > 30000
-        ) {
-
-            setText(
-                "espStatus",
-                "Offline"
-            );
-
-
-            const esp =
-                $("espStatus");
-
-
-            if (esp) {
-
-                esp.className =
-                    "";
-
-            }
-
-        }
-
-    },
-    5000
-);
-
-
-/* =========================================================
-   RESIZE
-========================================================= */
-
-window.addEventListener(
-    "resize",
-    () => {
-
-        drawCharts();
+        return;
 
     }
-);
+
+
+    hydroDebug(
+        "Firebase موجود",
+        "success"
+    );
+
+
+    if(
+        !("Notification" in window)
+    ) {
+
+        hydroDebug(
+            "Notifications غير مدعومة",
+            "error"
+        );
+
+
+        return;
+
+    }
+
+
+    hydroDebug(
+        "Notification permission = " +
+        Notification.permission,
+        Notification.permission ===
+        "granted"
+            ? "success"
+            : "warning"
+    );
+
+
+    if(
+        Notification.permission !==
+        "granted"
+    ) {
+
+        try {
+
+            const permission =
+                await Notification.requestPermission();
+
+
+            hydroDebug(
+                "نتيجة طلب الإذن: " +
+                permission,
+
+                permission ===
+                "granted"
+                    ? "success"
+                    : "warning"
+            );
+
+        } catch(error) {
+
+            hydroDebug(
+                "خطأ في طلب الإذن: " +
+                error.message,
+                "error"
+            );
+
+            return;
+
+        }
+
+    }
+
+
+    if(
+        Notification.permission !==
+        "granted"
+    )
+        return;
+
+
+    const token =
+        await window.HydroFirebase
+            .getFCMToken();
+
+
+    if(token) {
+
+        hydroDebug(
+            "FCM Token موجود",
+            "success"
+        );
+
+
+        const tokenBox =
+            $("debugFCMToken");
+
+
+        if(tokenBox)
+            tokenBox.textContent =
+                token;
+
+    }
+
+}
 
 
 /* =========================================================
-   START APPLICATION
+   SERVICE WORKER TEST
+========================================================= */
+
+async function testServiceWorker() {
+
+    if(
+        !("serviceWorker" in navigator)
+    ) {
+
+        hydroDebug(
+            "Service Worker غير مدعوم",
+            "error"
+        );
+
+
+        return;
+
+    }
+
+
+    try {
+
+        const registrations =
+            await navigator
+                .serviceWorker
+                .getRegistrations();
+
+
+        hydroDebug(
+            `Service Worker registrations: ${registrations.length}`,
+            registrations.length
+                ? "success"
+                : "warning"
+        );
+
+
+        await navigator
+            .serviceWorker
+            .ready;
+
+
+        hydroDebug(
+            "Service Worker جاهز",
+            "success"
+        );
+
+
+    } catch(error) {
+
+        hydroDebug(
+            "Service Worker Error: " +
+            error.message,
+            "error"
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   DOM READY
 ========================================================= */
 
 document.addEventListener(
     "DOMContentLoaded",
-    () => {
-
-        console.log(
-            "Hydro Farm application starting..."
-        );
-
+    async () => {
 
         setupNavigation();
-
 
         setupControls();
 
 
-        setupSettings();
+        $("mqttConnect")
+            ?.addEventListener(
+                "click",
+                connectMQTT
+            );
 
 
-        setupRanges();
+        $("modeButton")
+            ?.addEventListener(
+                "click",
+                toggleMode
+            );
 
 
-        setupMQTTButton();
+        $("clearAlerts")
+            ?.addEventListener(
+                "click",
+                clearAlerts
+            );
 
 
-        setupModeButton();
+        $("firebaseTest")
+            ?.addEventListener(
+                "click",
+                testFirebase
+            );
 
 
-        setupClearButton();
+        $("swTest")
+            ?.addEventListener(
+                "click",
+                testServiceWorker
+            );
 
 
-        setupSaveButton();
+        $("debugClear")
+            ?.addEventListener(
+                "click",
+                () => {
+
+                    const box =
+                        $("debugConsole");
+
+                    if(box)
+                        box.innerHTML = "";
+
+                }
+            );
 
 
         setMQTTStatus(
@@ -3202,13 +2335,22 @@ document.addEventListener(
 
         updateInterface();
 
-
         drawCharts();
 
 
-        console.log(
-            "Hydro Farm application started"
+        hydroDebug(
+            "Hydro Farm بدأ التشغيل",
+            "success"
         );
 
+
+        testServiceWorker();
+
     }
+);
+
+
+window.addEventListener(
+    "resize",
+    drawCharts
 );
