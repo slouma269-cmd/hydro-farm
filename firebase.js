@@ -1,356 +1,71 @@
-/* =========================================================
-   HYDRO FARM
-   FIREBASE + FCM + MOBILE DEBUG
-========================================================= */
-
-import { initializeApp } from
-  "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-
-import {
-  getMessaging,
-  getToken,
-  onMessage
-} from
-  "https://www.gstatic.com/firebasejs/12.1.0/firebase-messaging.js";
-
-
-/* =========================================================
-   FIREBASE CONFIG
-========================================================= */
-
+// ==========================================
+// إعدادات مشروع Firebase وتفعيل الإشعارات FCM
+// ==========================================
 const firebaseConfig = {
-
-  apiKey:
-    "AIzaSyA_x9UwCimSHYHszSbZU6Fj5o2Q_yGO4xU",
-
-  authDomain:
-    "hydro-farm-gh001.firebaseapp.com",
-
-  projectId:
-    "hydro-farm-gh001",
-
-  storageBucket:
-    "hydro-farm-gh001.firebasestorage.app",
-
-  messagingSenderId:
-    "231547739134",
-
-  appId:
-    "1:231547739134:web:f9e7c4104c1cd62cd6feaf",
-
-  measurementId:
-    "G-G79WT4R8DX"
-
+  apiKey: "AIzaSyCiTf3a5rp47E6My5UhIcNjbSDJ3yYEGJ4",
+  authDomain: "hydro-smart-2026.firebaseapp.com",
+  projectId: "hydro-smart-2026",
+  storageBucket: "hydro-smart-2026.firebasestorage.app",
+  messagingSenderId: "365503155313",
+  appId: "1:365503155313:web:fc7db3b832681919e8dfd0",
+  measurementId: "G-TLJ3S9G7JM"
 };
 
+// المفتاح الذي تم استخراجه من صورة Web Push Certificate
+const vapidKey = "BMcDnn8ETX8X7cYBTRe7g8v3tkUFYaz1a8uJj3HjYEd40YB1liGa-s75GMGAEgNaMadRR1D5Zn_4kyfSz72gMNdU";
 
-/* =========================================================
-   DEBUG
-========================================================= */
+// 1. تهيئة Firebase
+firebase.initializeApp(firebaseConfig);
+const messaging = firebase.messaging();
 
-function firebaseDebug(message, type = "info") {
-
-  console.log("[Firebase]", message);
-
-  window.dispatchEvent(
-    new CustomEvent("hydro-debug", {
-      detail: {
-        source: "Firebase",
-        message: message,
-        type: type,
-        time: new Date().toLocaleTimeString()
-      }
-    })
-  );
-
-}
-
-
-/* =========================================================
-   INITIALIZE FIREBASE
-========================================================= */
-
-let firebaseApp = null;
-let hydroMessaging = null;
-
-try {
-
-  firebaseApp =
-    initializeApp(firebaseConfig);
-
-  firebaseDebug(
-    "Firebase تم تهيئته بنجاح",
-    "success"
-  );
-
-} catch (error) {
-
-  console.error(error);
-
-  firebaseDebug(
-    "فشل تهيئة Firebase: " + error.message,
-    "error"
-  );
-
-}
-
-
-/* =========================================================
-   INITIALIZE FCM
-========================================================= */
-
-if (firebaseApp) {
-
-  try {
-
-    hydroMessaging =
-      getMessaging(firebaseApp);
-
-    firebaseDebug(
-      "Firebase Cloud Messaging تم تهيئته",
-      "success"
-    );
-
-  } catch (error) {
-
-    console.error(error);
-
-    firebaseDebug(
-      "فشل تهيئة FCM: " + error.message,
-      "error"
-    );
-
-  }
-
-}
-
-
-/* =========================================================
-   VAPID PUBLIC KEY
-========================================================= */
-
-const HYDRO_VAPID_KEY =
-  "BDDs10tlb8c7DPFmpkqHWpWNVkE3_yrqFpJ0ytLfRqmOnyKqUzn-KpSznaC5d3MhWZtg5-yQbknlG2jNCU7Knwo";
-
-
-/* =========================================================
-   GET FCM TOKEN
-========================================================= */
-
-async function getHydroFCMToken() {
-
-  if (!hydroMessaging) {
-
-    firebaseDebug(
-      "FCM Messaging غير متوفر",
-      "error"
-    );
-
-    return null;
-
-  }
-
-
-  if (
-    !("Notification" in window)
-  ) {
-
-    firebaseDebug(
-      "Notifications API غير مدعوم",
-      "error"
-    );
-
-    return null;
-
-  }
-
-
-  if (
-    Notification.permission !==
-    "granted"
-  ) {
-
-    firebaseDebug(
-      "صلاحية الإشعارات ليست granted: " +
-      Notification.permission,
-      "warning"
-    );
-
-    return null;
-
-  }
-
-
-  try {
-
-    firebaseDebug(
-      "انتظار Service Worker...",
-      "info"
-    );
-
-
-    const registration =
-      await navigator.serviceWorker.ready;
-
-
-    firebaseDebug(
-      "Service Worker جاهز",
-      "success"
-    );
-
-
-    const token =
-      await getToken(
-        hydroMessaging,
-        {
-
-          vapidKey:
-            HYDRO_VAPID_KEY,
-
-          serviceWorkerRegistration:
-            registration
-
+// 2. طلب إذن الإشعارات واستخراج الـ FCM Token
+function requestNotificationPermission() {
+  logDebug("جاري طلب إذن الإشعارات...");
+  
+  Notification.requestPermission().then((permission) => {
+    if (permission === 'granted') {
+      logDebug('🟢 تم منح إذن الإشعارات!');
+      
+      messaging.getToken({ vapidKey: vapidKey }).then((currentToken) => {
+        if (currentToken) {
+          logDebug(`🔑 FCM Token: ${currentToken.substring(0, 15)}...`);
+          console.log('Full FCM Token:', currentToken);
+          localStorage.setItem('fcm_token', currentToken);
+        } else {
+          logDebug('⚠️ لم يتم استخراج Token. تحقق من إعدادات FCM.');
         }
-      );
+      }).catch((err) => {
+        logDebug(`🔴 خطأ أثناء استخراج Token: ${err.message}`);
+      });
 
-
-    if (token) {
-
-      firebaseDebug(
-        "تم الحصول على FCM Token بنجاح",
-        "success"
-      );
-
-
-      window.dispatchEvent(
-        new CustomEvent(
-          "hydro-fcm-token",
-          {
-            detail: token
-          }
-        )
-      );
-
-
-      return token;
-
+    } else {
+      logDebug('🔴 تم رفض إذن الإشعارات.');
     }
-
-
-    firebaseDebug(
-      "لم يتم الحصول على FCM Token",
-      "warning"
-    );
-
-    return null;
-
-
-  } catch (error) {
-
-    console.error(
-      "FCM token error:",
-      error
-    );
-
-    firebaseDebug(
-      "خطأ FCM Token: " +
-      error.message,
-      "error"
-    );
-
-    return null;
-
-  }
-
+  });
 }
 
+// 3. استقبال الإشعارات والتطبيق مفتوح
+messaging.onMessage((payload) => {
+  logDebug(`🔔 إشعار جديد: ${payload.notification?.title || 'تنبيه'}`);
+  addAlertToUI(payload.notification?.title || 'تنبيه', payload.notification?.body || '', 'red');
+  alert(`🔔 ${payload.notification?.title}\n${payload.notification?.body}`);
+});
 
-/* =========================================================
-   FOREGROUND MESSAGE
-========================================================= */
+function addAlertToUI(title, message, type = 'red') {
+  const alertsList = document.getElementById('alerts-list');
+  if (!alertsList) return;
 
-if (hydroMessaging) {
+  const time = new Date().toLocaleTimeString('ar-TN', { hour: '2-digit', minute: '2-digit' });
+  const alertItem = document.createElement('div');
+  alertItem.className = `alert-item ${type}`;
+  alertItem.innerHTML = `
+    <strong>${type === 'red' ? '🚨' : '⚠️'} ${title} (${time})</strong>
+    <p>${message}</p>
+  `;
 
-  onMessage(
-    hydroMessaging,
-    payload => {
-
-      console.log(
-        "FCM message:",
-        payload
-      );
-
-
-      firebaseDebug(
-        "تم استقبال رسالة FCM",
-        "success"
-      );
-
-
-      const title =
-        payload.notification?.title ||
-        "Hydro Farm";
-
-
-      const body =
-        payload.notification?.body ||
-        "تنبيه جديد من النظام";
-
-
-      if (
-        typeof showHydroNotification ===
-        "function"
-      ) {
-
-        showHydroNotification(
-          title,
-          body
-        );
-
-      }
-
-
-      if (
-        typeof addHydroAlert ===
-        "function"
-      ) {
-
-        addHydroAlert(
-          title,
-          body,
-          "INFO"
-        );
-
-      }
-
-    }
-  );
-
+  alertsList.prepend(alertItem);
 }
 
-
-/* =========================================================
-   EXPORT
-========================================================= */
-
-window.HydroFirebase = {
-
-  app:
-    firebaseApp,
-
-  messaging:
-    hydroMessaging,
-
-  getFCMToken:
-    getHydroFCMToken,
-
-  vapidKey:
-    HYDRO_VAPID_KEY
-
-};
-
-
-firebaseDebug(
-  "firebase.js جاهز",
-  "success"
-);
+function testFCM() {
+  requestNotificationPermission();
+}
