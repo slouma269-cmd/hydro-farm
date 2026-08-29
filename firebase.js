@@ -10,7 +10,8 @@ const firebaseConfig = {
   appId: "1:365503155313:web:fc7db3b832681919e8dfd0"
 };
 
-const vapidKey = "BLkC--WlBf9q53xVd-u_R67-s-6lqB-_x";
+// مفتاح VAPID الحقيقي الخاص بمشروعك
+const vapidKey = "BMcDnn8ETX0X7cYBtRe7g8v3tkUFYar1aGuJj3HjYEd4OY8lHGa-s75GWGAEgNmMAdRR1D5Zn_4kyfSr72gMNdU";
 
 // تهيئة الخدمة
 if (typeof firebase !== 'undefined' && !firebase.apps.length) {
@@ -18,7 +19,7 @@ if (typeof firebase !== 'undefined' && !firebase.apps.length) {
 }
 
 // ==========================================
-// 2. دالة اختبار FCM الرئيسية (ربط عام بالنطاق window)
+// 2. دالة اختبار FCM الرئيسية
 // ==========================================
 window.testFCM = function() {
   logDebug("🔥 تم الضغط على زر اختبار FCM...");
@@ -52,7 +53,7 @@ window.testFCM = function() {
         logDebug(`🔑 FCM Token: ${token}`);
         localStorage.setItem('fcm_token', token);
         
-        // إظهار نافذة منبثقة بنص التوكين لنسخه
+        // إظهار نافذة منبثقة بنص التوكين لنسخه مباشرة
         prompt("نسخ الـ FCM Token الخاص بجهازك:", token);
       } else {
         logDebug("⚠️ لم يتم استخراج Token.");
@@ -76,5 +77,4 @@ if (typeof firebase !== 'undefined') {
   } catch (e) {
     console.log("FCM listener init skip", e);
   }
-    }
-      
+                        }
