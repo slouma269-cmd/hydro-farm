@@ -1,8 +1,8 @@
 // ==========================================
-// 1. إعدادات Firebase الخاصة بالمشروع
+// 1. إعدادات Firebase الخاصة بالمشروع (مصححة)
 // ==========================================
 const firebaseConfig = {
-  apiKey: "AIzaSyCiTf3a5rp47E6My5UhIcNjbSDJ3yYEGJ4",
+  apiKey: "AIzaSyCiTf3a5np47E5My5UhIcNjbSDJ3yYEGJ4",
   authDomain: "hydro-smart-2026.firebaseapp.com",
   projectId: "hydro-smart-2026",
   storageBucket: "hydro-smart-2026.firebasestorage.app",
@@ -31,7 +31,7 @@ window.testFCM = async function() {
     return;
   }
 
-  // تفريغ قواعد البيانات القديمة لتجاوز خطأ Installations
+  // تنظيف قواعد البيانات القديمة لتجاوز الخطأ السابق
   try {
     if (window.indexedDB && indexedDB.databases) {
       const dbs = await indexedDB.databases();
@@ -69,7 +69,7 @@ window.testFCM = async function() {
         if (typeof logDebug === 'function') logDebug(`🔑 FCM Token: ${token}`);
         localStorage.setItem('fcm_token', token);
         
-        // إظهار نافذة نسخ التوكين
+        // إظهار نافذة منبثقة بنص التوكين
         prompt("نسخ الـ FCM Token الخاص بجهازك:", token);
       } else {
         if (typeof logDebug === 'function') logDebug("⚠️ لم يتم استخراج Token.");
@@ -96,5 +96,5 @@ if (typeof firebase !== 'undefined') {
   } catch (e) {
     console.log("FCM listener init skip", e);
   }
-            }
-        
+    }
+            
