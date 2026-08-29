@@ -19,31 +19,46 @@ let isAuto = true;
 // 2. إدارة الاتصال بـ MQTT Server
 // ==========================================
 function connectMQTT() {
-  logDebug("جاري الاتصال بسيرفر HiveMQ Cloud...");
-  
-  // الحصول على الإعدادات من الواجهة إذا قام المستخدم بتعديلها
-  const serverInput = document.getElementById('mqtt-server')?.value;
-  const portInput = document.getElementById('mqtt-port')?.value;
-  
-  const host = serverInput || MQTT_CONFIG.host;
-  const port = portInput ? parseInt(portInput) : MQTT_CONFIG.port;
+  logDebug("جاري بدء الاتصال بسيرفر HiveMQ Cloud...");
 
-  client = new Paho.MQTT.Client(host, port, MQTT_CONFIG.clientId);
+  // قراءة القيم المدخلة في صفحة الإعدادات
+  const host = document.getElementById('mqtt-server')?.value.trim() || MQTT_CONFIG.host;
+  const port = parseInt(document.getElementById('mqtt-port')?.value) || MQTT_CONFIG.port;
+  const username = document.getElementById('mqtt-user')?.value.trim() || MQTT_CONFIG.username;
+  const password = document.getElementById('mqtt-pass')?.value || "";
+  const gh = document.getElementById('mqtt-gh')?.value.trim() || "GH001";
 
-  // ضبط أفعال الأحداث (Callbacks)
+  // تحديث الموضوعات بناءً على اسم البيوت المحمية (Greenhouse)
+  MQTT_CONFIG.topicTelemetry = `greenhouse/${gh}/telemetry`;
+  MQTT_CONFIG.topicStatus = `greenhouse/${gh}/status`;
+  MQTT_CONFIG.topicCmd = `greenhouse/${gh}/command`;
+
+  // قطع أي اتصال سابق إن وجد
+  if (client && client.isConnected()) {
+    client.disconnect();
+  }
+
+  // إنشاء عميل جديد
+  const clientId = "HydroWebApp_" + Math.random().toString(16).substr(2, 8);
+  client = new Paho.MQTT.Client(host, port, clientId);
+
   client.onConnectionLost = onConnectionLost;
   client.onMessageArrived = onMessageArrived;
 
   const options = {
-    useSSL: true, // مهم جداً للاتصال عبر HTTPS/WSS في HiveMQ Cloud
-    userName: MQTT_CONFIG.username,
-    password: MQTT_CONFIG.password,
+    useSSL: true, // مهم جداً للاتصال عبر SSL/WebSockets (8884)
+    userName: username,
+    password: password,
     onSuccess: onConnectSuccess,
     onFailure: onConnectFailure,
     keepAliveInterval: 30
   };
 
-  client.connect(options);
+  try {
+    client.connect(options);
+  } catch (err) {
+    logDebug(`🔴 خطأ أثناء الاتصال: ${err.message}`);
+  }
 }
 
 function onConnectSuccess() {
