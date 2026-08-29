@@ -15,7 +15,7 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
 
-  const notificationTitle = payload.notification?.title || '🌱 تنبيه Hydro Farm';
+  const notificationTitle = payload.notification?.title || '🚨 تنبيه Hydro Farm';
   const notificationOptions = {
     body: payload.notification?.body || 'تحديث جديد من نظام المزرعة الذكية.',
     icon: '/icon-192.png'
@@ -23,4 +23,3 @@ messaging.onBackgroundMessage((payload) => {
 
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
-
