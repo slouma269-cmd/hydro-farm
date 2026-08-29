@@ -1,3 +1,6 @@
+// ==========================================
+// 1. إعدادات وتفريغ بيانات Firebase
+// ==========================================
 const firebaseConfig = {
   apiKey: "AIzaSyCiTf3a5rp47E6My5UhIcNjbSDJ3yYEGJ4",
   authDomain: "hydro-smart-2026.firebaseapp.com",
@@ -9,31 +12,37 @@ const firebaseConfig = {
 
 const vapidKey = "BLkC--WlBf9q53xVd-u_R67-s-6lqB-_x";
 
-firebase.initializeApp(firebaseConfig);
+// تهيئة الخدمة
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
 const messaging = firebase.messaging();
 
-function requestNotificationPermission() {
-  logDebug("جاري إعداد Service Worker وحفظ الإشعارات...");
+// ==========================================
+// 2. دالة تشغيل واختبار FCM عند الضغط على الزر
+// ==========================================
+function testFCM() {
+  logDebug("🔥 تم الضغط على زر اختبار FCM...");
 
   if (!('serviceWorker' in navigator)) {
-    logDebug("⚠️ المتصفح لا يدعم Service Worker");
+    alert("المتصفح لا يدعم Service Worker");
     return;
   }
 
-  // تسجيل الـ Service Worker بالمسار الصحيح للمستودع
+  // تسجيل الـ Service Worker وطلب التوكين
   navigator.serviceWorker.register('firebase-messaging-sw.js', { scope: './' })
     .then((registration) => {
       logDebug("🟢 Service Worker جاهز ومسجل!");
 
       return Notification.requestPermission().then((permission) => {
         if (permission === 'granted') {
-          logDebug('🟢 تم قبول إذن الإشعارات!');
+          logDebug("🟢 تم منح إذن الإشعارات!");
           return messaging.getToken({
             serviceWorkerRegistration: registration,
             vapidKey: vapidKey
           });
         } else {
-          throw new Error('تم رفض الإذن من المتصفح');
+          throw new Error("تم رفض إذن الإشعارات من الهاتف");
         }
       });
     })
@@ -41,18 +50,33 @@ function requestNotificationPermission() {
       if (token) {
         logDebug(`🔑 FCM Token: ${token}`);
         localStorage.setItem('fcm_token', token);
-        prompt("نسخ الـ FCM Token الخاص بك:", token);
+        
+        // إظهار نافذة منبثقة بنص التوكين لنسخه
+        prompt("نسخ الـ FCM Token الخاص بجهازك:", token);
       } else {
-        logDebug('⚠️ لم يتم إنشاء Token.');
+        logDebug("⚠️ لم يتم استخراج Token.");
       }
     })
     .catch((err) => {
-      logDebug(`🔴 خطأ التشغيل: ${err.message}`);
+      logDebug(`🔴 خطأ: ${err.message}`);
     });
 }
 
-messaging.onMessage((payload) => {
-  logDebug(`📩 إشعار مباشر: ${payload.notification?.title} - ${payload.notification?.body}`);
-  alert(`🚨 ${payload.notification?.title}\n${payload.notification?.body}`);
+// ==========================================
+// 3. ربط الزر تلقائياً فور تحميل الصفحة
+// ==========================================
+window.addEventListener('DOMContentLoaded', () => {
+  // البحث عن الزر بأكثر من طريقة لضمان الاستجابة
+  const fcmBtn = document.getElementById('btn-fcm-test') || 
+                 document.getElementById('btnFcmTest') || 
+                 document.querySelector('.btn-fcm-test') ||
+                 document.querySelector("button[onclick*='FCM']");
+
+  if (fcmBtn) {
+    fcmBtn.onclick = testFCM;
+    logDebug("✅ تم ربط زر اختبار FCM بنجاح.");
+  } else {
+    logDebug("⚠️ لم يتم العثور على زر FCM في الصفحة.");
+  }
 });
-            
+                 
