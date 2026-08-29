@@ -1,5 +1,5 @@
 // ==========================================
-// 1. إعدادات Firebase الخاصة بتطبيق الويب
+// 1. إعدادات Firebase الخاصة بالمشروع
 // ==========================================
 const firebaseConfig = {
   apiKey: "AIzaSyCiTf3a5rp47E6My5UhIcNjbSDJ3yYEGJ4",
@@ -19,10 +19,12 @@ if (typeof firebase !== 'undefined' && !firebase.apps.length) {
 }
 
 // ==========================================
-// 2. دالة اختبار FCM الرئيسية
+// 2. دالة اختبار FCM واستخراج التوكين
 // ==========================================
 window.testFCM = function() {
-  logDebug("🔥 تم الضغط على زر اختبار FCM...");
+  if (typeof logDebug === 'function') {
+    logDebug("🔥 تم الضغط على زر اختبار FCM...");
+  }
 
   if (!('serviceWorker' in navigator)) {
     alert("المتصفح لا يدعم Service Worker");
@@ -31,13 +33,14 @@ window.testFCM = function() {
 
   const messaging = firebase.messaging();
 
+  // تسجيل Service Worker وطلب التوكين
   navigator.serviceWorker.register('firebase-messaging-sw.js', { scope: './' })
     .then((registration) => {
-      logDebug("🟢 Service Worker جاهز ومسجل!");
+      if (typeof logDebug === 'function') logDebug("🟢 Service Worker جاهز ومسجل!");
 
       return Notification.requestPermission().then((permission) => {
         if (permission === 'granted') {
-          logDebug("🟢 تم منح إذن الإشعارات!");
+          if (typeof logDebug === 'function') logDebug("🟢 تم منح إذن الإشعارات!");
           return messaging.getToken({
             serviceWorkerRegistration: registration,
             vapidKey: vapidKey
@@ -49,32 +52,35 @@ window.testFCM = function() {
     })
     .then((token) => {
       if (token) {
-        logDebug(`🔑 FCM Token: ${token}`);
+        if (typeof logDebug === 'function') logDebug(`🔑 FCM Token: ${token}`);
         localStorage.setItem('fcm_token', token);
         
-        // نافذة منبثقة بنص التوكين لنسخه
+        // إظهار نافذة نسخ التوكين
         prompt("نسخ الـ FCM Token الخاص بجهازك:", token);
       } else {
-        logDebug("⚠️ لم يتم استخراج Token.");
+        if (typeof logDebug === 'function') logDebug("⚠️ لم يتم استخراج Token.");
       }
     })
     .catch((err) => {
-      logDebug(`🔴 خطأ: ${err.message}`);
+      if (typeof logDebug === 'function') logDebug(`🔴 خطأ: ${err.message}`);
+      console.error("FCM Error:", err);
     });
 };
 
 // ==========================================
-// 3. استقبال الرسائل المباشرة
+// 3. استقبال الرسائل المباشرة داخل التطبيق
 // ==========================================
 if (typeof firebase !== 'undefined') {
   try {
     const messaging = firebase.messaging();
     messaging.onMessage((payload) => {
-      logDebug(`📩 إشعار مباشر: ${payload.notification?.title} - ${payload.notification?.body}`);
+      if (typeof logDebug === 'function') {
+        logDebug(`📩 إشعار مباشر: ${payload.notification?.title} - ${payload.notification?.body}`);
+      }
       alert(`🚨 ${payload.notification?.title}\n${payload.notification?.body}`);
     });
   } catch (e) {
     console.log("FCM listener init skip", e);
   }
-               }
-  
+    }
+                                    
