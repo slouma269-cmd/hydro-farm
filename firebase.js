@@ -18,49 +18,44 @@ const vapidKey = "BMcDnn8ETX8X7cYBTRe7g8v3tkUFYaz1a8uJj3HjYEd40YB1liGa-s75GMGAEg
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
-// طلب إذن الإشعارات واستخراج الـ FCM Token وقراءته بسهولة
+// تسجيل Service Worker وطلب التوكين
 function requestNotificationPermission() {
-  logDebug("جاري طلب إذن الإشعارات...");
-  
-  Notification.requestPermission().then((permission) => {
-    if (permission === 'granted') {
-      logDebug('🟢 تم منح إذن الإشعارات!');
-      
-      messaging.getToken({ vapidKey: vapidKey }).then((currentToken) => {
+  logDebug("جاري تسجيل Service Worker وطلب إذن الإشعارات...");
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/firebase-messaging-sw.js')
+      .then((registration) => {
+        logDebug("🟢 تم تسجيل Service Worker بنجاح!");
+
+        return Notification.requestPermission().then((permission) => {
+          if (permission === 'granted') {
+            logDebug('🟢 تم منح إذن الإشعارات!');
+
+            return messaging.getToken({
+              serviceWorkerRegistration: registration,
+              vapidKey: vapidKey
+            });
+          } else {
+            throw new Error('تم رفض إذن الإشعارات');
+          }
+        });
+      })
+      .then((currentToken) => {
         if (currentToken) {
-          logDebug(`🔑 FCM Token: ${currentToken.substring(0, 10)}...${currentToken.substring(currentToken.length - 5)}`);
-          
-          // حفظ التوكين محلياً
+          logDebug(`🔑 FCM Token: ${currentToken.substring(0, 10)}...`);
           localStorage.setItem('fcm_token', currentToken);
-          
-          // نسـخ الـ Token تلقائياً لعجلة الحافظة وإظهار تنبيه للمستخدم
-          navigator.clipboard.writeText(currentToken).then(() => {
-            alert("✅ تم نسـخ الـ FCM Token الكامل تلقائياً إلى حافظة هاتفك!\nيمكنك الآن لصقه مباشرة في Firebase Console.");
-          }).catch(() => {
-            // في حال عدم دعم النسخ التلقائي يتم عرضه في نافذة لنسخه يدوياً
-            prompt("نسخ الـ FCM Token الخاص بجهازك:", currentToken);
-          });
 
-        } else {
-          logDebug('⚠️ لم يتم استخراج Token. تحقق من إعدادات FCM.');
+          // إظهار نافذة للنسخ الفوري
+          prompt("نسخ الـ FCM Token الخاص بجهازك لـ Firebase Console:", currentToken);
         }
-      }).catch((err) => {
-        logDebug(`🔴 خطأ أثناء استخراج Token: ${err.message}`);
+      })
+      .catch((err) => {
+        logDebug(`🔴 خطأ: ${err.message}`);
       });
-
-    } else {
-      logDebug('🔴 تم رفض إذن الإشعارات.');
-    }
-  });
+  } else {
+    logDebug("⚠️ المتصفح لا يدعم Service Worker");
+  }
 }
-
-
-// 3. استقبال الإشعارات والتطبيق مفتوح
-messaging.onMessage((payload) => {
-  logDebug(`🔔 إشعار جديد: ${payload.notification?.title || 'تنبيه'}`);
-  addAlertToUI(payload.notification?.title || 'تنبيه', payload.notification?.body || '', 'red');
-  alert(`🔔 ${payload.notification?.title}\n${payload.notification?.body}`);
-});
 
 function addAlertToUI(title, message, type = 'red') {
   const alertsList = document.getElementById('alerts-list');
