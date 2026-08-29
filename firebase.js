@@ -18,7 +18,7 @@ const vapidKey = "BMcDnn8ETX8X7cYBTRe7g8v3tkUFYaz1a8uJj3HjYEd40YB1liGa-s75GMGAEg
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
-// 2. طلب إذن الإشعارات واستخراج الـ FCM Token
+// طلب إذن الإشعارات واستخراج الـ FCM Token وقراءته بسهولة
 function requestNotificationPermission() {
   logDebug("جاري طلب إذن الإشعارات...");
   
@@ -28,9 +28,19 @@ function requestNotificationPermission() {
       
       messaging.getToken({ vapidKey: vapidKey }).then((currentToken) => {
         if (currentToken) {
-          logDebug(`🔑 FCM Token: ${currentToken.substring(0, 15)}...`);
-          console.log('Full FCM Token:', currentToken);
+          logDebug(`🔑 FCM Token: ${currentToken.substring(0, 10)}...${currentToken.substring(currentToken.length - 5)}`);
+          
+          // حفظ التوكين محلياً
           localStorage.setItem('fcm_token', currentToken);
+          
+          // نسـخ الـ Token تلقائياً لعجلة الحافظة وإظهار تنبيه للمستخدم
+          navigator.clipboard.writeText(currentToken).then(() => {
+            alert("✅ تم نسـخ الـ FCM Token الكامل تلقائياً إلى حافظة هاتفك!\nيمكنك الآن لصقه مباشرة في Firebase Console.");
+          }).catch(() => {
+            // في حال عدم دعم النسخ التلقائي يتم عرضه في نافذة لنسخه يدوياً
+            prompt("نسخ الـ FCM Token الخاص بجهازك:", currentToken);
+          });
+
         } else {
           logDebug('⚠️ لم يتم استخراج Token. تحقق من إعدادات FCM.');
         }
@@ -43,6 +53,7 @@ function requestNotificationPermission() {
     }
   });
 }
+
 
 // 3. استقبال الإشعارات والتطبيق مفتوح
 messaging.onMessage((payload) => {
