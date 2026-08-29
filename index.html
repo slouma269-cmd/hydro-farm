@@ -96,15 +96,16 @@
         <button class="filter-btn">7 أيام</button>
       </div>
 
-      <h3>الرسوم البيانية</h3>
+            <h3>الرسوم البيانية الحية</h3>
       <div class="card chart-box">
-        <p>مخطط حرارة الهواء</p>
-        <div class="chart-placeholder">[ رسم بياني ]</div>
+        <p style="margin-top:0; font-size: 13px; color: var(--accent-blue);">🌡️ مخطط حرارة الهواء (°C)</p>
+        <canvas id="airTempChart" style="max-height: 180px;"></canvas>
       </div>
       <div class="card chart-box">
-        <p>مخطط مستوى الخزان</p>
-        <div class="chart-placeholder">[ رسم بياني ]</div>
+        <p style="margin-top:0; font-size: 13px; color: var(--accent-blue);">🚰 مخطط مستوى الخزان (%)</p>
+        <canvas id="tankLevelChart" style="max-height: 180px;"></canvas>
       </div>
+
     </section>
 
     <section id="page-system" class="page-tab">
@@ -211,6 +212,8 @@
     </button>
   </nav>
 
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
   <script src="firebase.js"></script>
   <script src="app.js"></script>
