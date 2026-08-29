@@ -3,7 +3,7 @@
 // ==========================================
 const MQTT_CONFIG = {
   host: "99580666d99a4632b4a1d5087e22d494.s1.eu.hivemq.cloud",
-  port: 8884, // منفذ WSS الآمن
+  port: 8884,
   clientId: "HydroWebApp_" + Math.random().toString(16).substr(2, 8),
   username: "hydro01-test",
   password: "",
@@ -18,27 +18,84 @@ let isAuto = true;
 // متغيرات الرسوم البيانية
 let airTempChart = null;
 let tankLevelChart = null;
-const maxDataPoints = 15; // حد أقصى للنقاط المعروضة على الرسم البياني
+const maxDataPoints = 15;
 
 // ==========================================
-// 2. إدارة الاتصال بـ MQTT Server
+// 2. إدارة الاتصال والتخزين المحلي (localStorage)
 // ==========================================
+
+// حفظ البيانات في ذاكرة الهاتف/المتصفح
+function saveSettingsToLocalStorage(host, port, username, password, gh) {
+  try {
+    localStorage.setItem('mqtt_host', host);
+    localStorage.setItem('mqtt_port', port);
+    localStorage.setItem('mqtt_user', username);
+    localStorage.setItem('mqtt_pass', password);
+    localStorage.setItem('mqtt_gh', gh);
+    logDebug("💾 تم حفظ بيانات الاتصال كلمة المرور في الذاكرة المحلية بنجاح.");
+  } catch (e) {
+    console.error("فشل حفظ البيانات في localStorage", e);
+  }
+}
+
+// استرجاع البيانات المحفوظة عند فتح التطبيق
+function loadSettingsFromLocalStorage() {
+  const savedHost = localStorage.getItem('mqtt_host');
+  const savedPort = localStorage.getItem('mqtt_port');
+  const savedUser = localStorage.getItem('mqtt_user');
+  const savedPass = localStorage.getItem('mqtt_pass');
+  const savedGh = localStorage.getItem('mqtt_gh');
+
+  if (savedHost) {
+    const el = document.getElementById('mqtt-server');
+    if (el) el.value = savedHost;
+  }
+  if (savedPort) {
+    const el = document.getElementById('mqtt-port');
+    if (el) el.value = savedPort;
+  }
+  if (savedUser) {
+    const el = document.getElementById('mqtt-user');
+    if (el) el.value = savedUser;
+  }
+  if (savedPass) {
+    const el = document.getElementById('mqtt-pass');
+    if (el) el.value = savedPass;
+  }
+  if (savedGh) {
+    const el = document.getElementById('mqtt-gh');
+    if (el) el.value = savedGh;
+  }
+
+  // إرجاع القيم المسترجعة أو الافتراضية
+  return {
+    host: savedHost || MQTT_CONFIG.host,
+    port: parseInt(savedPort) || MQTT_CONFIG.port,
+    username: savedUser || MQTT_CONFIG.username,
+    password: savedPass || MQTT_CONFIG.password,
+    gh: savedGh || "GH001"
+  };
+}
+
 function connectMQTT() {
   logDebug("جاري بدء الاتصال بسيرفر HiveMQ Cloud...");
 
-  // قراءة البيانات من حقول الإعدادات
-  const host = document.getElementById('mqtt-server')?.value.trim() || MQTT_CONFIG.host;
-  const port = parseInt(document.getElementById('mqtt-port')?.value) || MQTT_CONFIG.port;
-  const username = document.getElementById('mqtt-user')?.value.trim() || MQTT_CONFIG.username;
-  const password = document.getElementById('mqtt-pass')?.value || "";
-  const gh = document.getElementById('mqtt-gh')?.value.trim() || "GH001";
+  // جلب القيم المسترجعة أو إدخال المستخدم الحالي
+  const settings = loadSettingsFromLocalStorage();
 
-  // تحديث المواضيع بناءً على اسم الصوبة (Greenhouse)
+  const host = document.getElementById('mqtt-server')?.value.trim() || settings.host;
+  const port = parseInt(document.getElementById('mqtt-port')?.value) || settings.port;
+  const username = document.getElementById('mqtt-user')?.value.trim() || settings.username;
+  const password = document.getElementById('mqtt-pass')?.value || settings.password;
+  const gh = document.getElementById('mqtt-gh')?.value.trim() || settings.gh;
+
+  // حفظ التغييرات الحالية دائماً لاستخدامها المرة القادمة تلقائياً
+  saveSettingsToLocalStorage(host, port, username, password, gh);
+
   MQTT_CONFIG.topicTelemetry = `greenhouse/${gh}/telemetry`;
   MQTT_CONFIG.topicStatus = `greenhouse/${gh}/status`;
   MQTT_CONFIG.topicCmd = `greenhouse/${gh}/command`;
 
-  // قطع الاتصال السابق إن وجد
   if (client && client.isConnected()) {
     try {
       client.disconnect();
@@ -73,7 +130,6 @@ function onConnectSuccess() {
   logDebug("🟢 تم الاتصال بنجاح بـ HiveMQ Cloud!");
   updateConnectionBadges(true);
 
-  // الاشتراك في مواضيع الرسائل
   client.subscribe(MQTT_CONFIG.topicTelemetry);
   client.subscribe(MQTT_CONFIG.topicStatus);
   logDebug(`تم الاشتراك في الموضوع: ${MQTT_CONFIG.topicTelemetry}`);
@@ -105,7 +161,6 @@ function onMessageArrived(message) {
       second: '2-digit' 
     });
 
-    // تحديث قيم الحرارة والرطوبة وغيرها
     if (payload.air_temp !== undefined) {
       updateValue('val-air-temp', 'd-air-temp', `${payload.air_temp} <small>°C</small>`, `${payload.air_temp}°C`);
       const sysAir = document.getElementById('sys-air-t');
@@ -129,7 +184,6 @@ function onMessageArrived(message) {
       updateValue('val-ph', 'd-ph', payload.ph, payload.ph);
     }
 
-    // تحديث حالة الأجهزة والوضع إن وُجدت
     if (payload.mode !== undefined) {
       setSystemModeUI(payload.mode === "AUTO");
     }
@@ -177,7 +231,6 @@ function initCharts() {
     plugins: { legend: { display: false } }
   };
 
-  // 1. مخطط حرارة الهواء
   const ctxTemp = document.getElementById('airTempChart')?.getContext('2d');
   if (ctxTemp) {
     airTempChart = new Chart(ctxTemp, {
@@ -198,7 +251,6 @@ function initCharts() {
     });
   }
 
-  // 2. مخطط مستوى الخزان
   const ctxTank = document.getElementById('tankLevelChart')?.getContext('2d');
   if (ctxTank) {
     tankLevelChart = new Chart(ctxTank, {
@@ -338,19 +390,14 @@ function clearLogs() {
   if (consoleBox) consoleBox.innerHTML = '[System] تم مسح السجل.';
 }
 
-function testFCM() {
-  logDebug('اختبار Firebase / FCM...');
-  setTimeout(() => {
-    logDebug('Firebase initialized successfully.');
-    logDebug('FCM token received: eX892...kL9');
-  }, 1000);
-}
-
 // ==========================================
 // 8. أحداث البدء عند تحميل الصفحة
 // ==========================================
 window.addEventListener('DOMContentLoaded', () => {
   logDebug("بدء تشغيل التطبيق...");
+
+  // تحميل الإعدادات المحفوظة ساباقاً في ذاكرة الجهاز
+  loadSettingsFromLocalStorage();
 
   // تهيئة الرسوم البيانية
   initCharts();
@@ -360,6 +407,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-fan')?.addEventListener('change', (e) => sendCommand('fan', e.target.checked));
   document.getElementById('btn-pad')?.addEventListener('change', (e) => sendCommand('pad', e.target.checked));
 
-  // بدء الاتصال بـ MQTT تلقائياً
+  // بدء الاتصال تلقائياً باستخدام البيانات المحفوظة
   connectMQTT();
 });
+        
