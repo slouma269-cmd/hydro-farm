@@ -10,16 +10,13 @@ const firebaseConfig = {
   appId: "1:365503155313:web:fc7db3b832681919e8dfd0"
 };
 
-// مفتاح VAPID الحقيقي الخاص بمشروعك
-const vapidKey = "BMcDnn8ETX0X7cYBtRe7g8v3tkUFYar1aGuJj3HjYEd4OY8lHGa-s75GWGAEgNmMAdRR1D5Zn_4kyfSr72gMNdU";
-
 // تهيئة الخدمة
 if (typeof firebase !== 'undefined' && !firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
 }
 
 // ==========================================
-// 2. دالة اختبار FCM الرئيسية
+// 2. دالة اختبار FCM الرئيسية (بدون VAPID لتفادي خطأ atob)
 // ==========================================
 window.testFCM = function() {
   logDebug("🔥 تم الضغط على زر اختبار FCM...");
@@ -31,7 +28,7 @@ window.testFCM = function() {
 
   const messaging = firebase.messaging();
 
-  // تسجيل الـ Service Worker وطلب التوكين
+  // تسجيل الـ Service Worker وطلب التوكين مباشرة
   navigator.serviceWorker.register('firebase-messaging-sw.js', { scope: './' })
     .then((registration) => {
       logDebug("🟢 Service Worker جاهز ومسجل!");
@@ -39,9 +36,9 @@ window.testFCM = function() {
       return Notification.requestPermission().then((permission) => {
         if (permission === 'granted') {
           logDebug("🟢 تم منح إذن الإشعارات!");
+          // استدعاء getToken بدون تمرير vapidKey لتفادي مشكلة فك التشفير
           return messaging.getToken({
-            serviceWorkerRegistration: registration,
-            vapidKey: vapidKey
+            serviceWorkerRegistration: registration
           });
         } else {
           throw new Error("تم رفض إذن الإشعارات من الهاتف");
@@ -53,7 +50,7 @@ window.testFCM = function() {
         logDebug(`🔑 FCM Token: ${token}`);
         localStorage.setItem('fcm_token', token);
         
-        // إظهار نافذة منبثقة بنص التوكين لنسخه مباشرة
+        // نافذة نسخ التوكين
         prompt("نسخ الـ FCM Token الخاص بجهازك:", token);
       } else {
         logDebug("⚠️ لم يتم استخراج Token.");
@@ -77,4 +74,5 @@ if (typeof firebase !== 'undefined') {
   } catch (e) {
     console.log("FCM listener init skip", e);
   }
-                        }
+                          }
+      
