@@ -138,7 +138,7 @@
     </section>
 
     <section id="page-settings" class="page-tab">
-      <h3>⚙️ إعدادات MQTT</h3>
+            <h3>⚙️ إعدادات MQTT</h3>
       <div class="card form-card">
         <label>MQTT Server</label>
         <input type="text" id="mqtt-server" value="99580666d99a4632b4a1d5087e22d494.s1.eu.hivemq.cloud">
@@ -146,8 +146,13 @@
         <input type="text" id="mqtt-port" value="8884">
         <label>Greenhouse</label>
         <input type="text" id="mqtt-gh" value="GH001">
-        <button class="btn-primary" onclick="logDebug('جاري الاتصال بـ MQTT...')">اتصال MQTT</button>
+        <label>Username</label>
+        <input type="text" id="mqtt-user" value="hydro01-test">
+        <label>Password</label>
+        <input type="password" id="mqtt-pass" placeholder="أدخل كلمة المرور">
+        <button class="btn-primary" onclick="connectMQTT()">اتصال MQTT</button>
       </div>
+
 
       <h3>⚙️ حدود التنبيه</h3>
       <div class="card form-card">
