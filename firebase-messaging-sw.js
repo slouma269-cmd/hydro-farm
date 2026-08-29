@@ -2,7 +2,7 @@ importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js'
 importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js');
 
 firebase.initializeApp({
-  apiKey: "AIzaSyCiTf3a5rp47E6My5UhIcNjbSDJ3yYEGJ4",
+  apiKey: "AIzaSyCiTf3a5np47E5My5UhIcNjbSDJ3yYEGJ4",
   authDomain: "hydro-smart-2026.firebaseapp.com",
   projectId: "hydro-smart-2026",
   storageBucket: "hydro-smart-2026.firebasestorage.app",
