@@ -21,7 +21,7 @@ if (typeof firebase !== 'undefined' && !firebase.apps.length) {
 // ==========================================
 // 2. دالة اختبار FCM واستخراج التوكين
 // ==========================================
-window.testFCM = function() {
+window.testFCM = async function() {
   if (typeof logDebug === 'function') {
     logDebug("🔥 تم الضغط على زر اختبار FCM...");
   }
@@ -29,6 +29,20 @@ window.testFCM = function() {
   if (!('serviceWorker' in navigator)) {
     alert("المتصفح لا يدعم Service Worker");
     return;
+  }
+
+  // تفريغ قواعد البيانات القديمة لتجاوز خطأ Installations
+  try {
+    if (window.indexedDB && indexedDB.databases) {
+      const dbs = await indexedDB.databases();
+      dbs.forEach(db => {
+        if (db.name && db.name.includes('firebase')) {
+          indexedDB.deleteDatabase(db.name);
+        }
+      });
+    }
+  } catch (e) {
+    console.log("Cleanup skipped", e);
   }
 
   const messaging = firebase.messaging();
@@ -82,5 +96,5 @@ if (typeof firebase !== 'undefined') {
   } catch (e) {
     console.log("FCM listener init skip", e);
   }
-    }
-                                    
+            }
+        
