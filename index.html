@@ -1,84 +1,148 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#0f172a">
-  <meta name="description" content="تطبيق إدارة ومراقبة نظام الزراعة المائية ESP32">
-  <link rel="manifest" href="manifest.json">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Hydro Farm</title>
   <link rel="stylesheet" href="style.css">
-  <title>Hydroponic Farm</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b1329">
 </head>
 <body>
-<header class="topbar">
-  <div>
-    <div class="eyebrow">SMART HYDROPONIC SYSTEM</div>
-    <h1>Hydroponic Farm</h1>
-  </div>
-  <div id="connection" class="status offline"><span></span> غير متصل</div>
-</header>
 
-<main>
-  <section class="hero">
-    <div>
-      <h2>لوحة التحكم</h2>
-      <p id="lastUpdate">في انتظار بيانات ESP32...</p>
+  <header class="app-header">
+    <div class="header-title">
+      <h1>My Hydro Farm</h1>
+      <button class="icon-btn">🔍</button>
     </div>
-    <button id="modeBtn" class="mode auto">AUTO</button>
-  </section>
+  </header>
 
-  <section class="grid sensors">
-    <article class="card metric"><span class="icon">🌡️</span><small>درجة حرارة الهواء</small><strong id="airTemperature">--</strong><em>°C</em></article>
-    <article class="card metric"><span class="icon">💧</span><small>رطوبة الهواء</small><strong id="airHumidity">--</strong><em>%</em></article>
-    <article class="card metric"><span class="icon">🌊</span><small>مستوى الماء</small><strong id="waterLevel">--</strong><em></em></article>
-    <article class="card metric"><span class="icon">🌡️</span><small>حرارة الماء</small><strong id="waterTemperature">--</strong><em>°C</em></article>
-    <article class="card metric"><span class="icon">⚡</span><small>EC / TDS</small><strong id="ec">--</strong><em>mS/cm</em></article>
-    <article class="card metric"><span class="icon">🧪</span><small>pH</small><strong id="ph">--</strong><em></em></article>
-  </section>
+  <main class="container">
 
-  <section class="section-head"><h2>التحكم</h2><span id="controlHint">الوضع التلقائي</span></section>
-  <section class="grid controls">
-    <article class="card control"><div><span class="icon">💦</span><b>Pump 1</b></div><button class="toggle" data-device="pump1">OFF</button></article>
-    <article class="card control"><div><span class="icon">💦</span><b>Pump 2</b></div><button class="toggle" data-device="pump2">OFF</button></article>
-    <article class="card control"><div><span class="icon">💦</span><b>Pump 3</b></div><button class="toggle" data-device="pump3">OFF</button></article>
-    <article class="card control"><div><span class="icon">💦</span><b>Pump 4</b></div><button class="toggle" data-device="pump4">OFF</button></article>
-    <article class="card control"><div><span class="icon">💨</span><b>Fan 1</b></div><button class="toggle" data-device="fan1">OFF</button></article>
-    <article class="card control"><div><span class="icon">💨</span><b>Fan 2</b></div><button class="toggle" data-device="fan2">OFF</button></article>
-    <article class="card control"><div><span class="icon">❄️</span><b>Cooling</b></div><button class="toggle" data-device="cooling">OFF</button></article>
-  </section>
+    <!-- Quick Alert Banner -->
+    <div class="alert-card">
+      <span class="alert-icon">⚠️</span>
+      <div class="alert-content">
+        <h4>Quick Alerts</h4>
+        <p>Nutrient Low in Zone 1</p>
+      </div>
+    </div>
 
-  <section class="section-head"><h2>الإعدادات التلقائية</h2></section>
-  <section class="card settings">
-    <label>درجة حرارة الماء المستهدفة <output id="waterTargetOut">24</output> °C
-      <input id="waterTarget" type="range" min="15" max="35" value="24"></label>
-    <label>درجة حرارة الهواء المستهدفة <output id="airTargetOut">26</output> °C
-      <input id="airTarget" type="range" min="15" max="40" value="26"></label>
-    <label>حد الحرارة العالية <output id="highTempOut">30</output> °C
-      <input id="highTemp" type="range" min="20" max="45" value="30"></label>
-  </section>
+    <!-- Gauges / Dashboard Grid -->
+    <section class="grid-2">
+      <!-- pH Gauge Card -->
+      <div class="card gauge-card">
+        <span class="card-title">pH LEVEL</span>
+        <div class="gauge-ring cyan-ring">
+          <span class="gauge-value">6.2</span>
+          <span class="gauge-icon">💧</span>
+        </div>
+      </div>
 
-  <section class="section-head"><h2>السجل والتنبيهات</h2><button id="clearAlerts" class="small-btn">مسح</button></section>
-  <section id="alerts" class="card alerts"><p class="empty">لا توجد تنبيهات.</p></section>
+      <!-- Water Temp / EC Card -->
+      <div class="card gauge-card">
+        <span class="card-title">WATER TEMP</span>
+        <div class="gauge-ring cyan-ring">
+          <span class="gauge-value">22.5°C</span>
+          <span class="gauge-icon">🌡️</span>
+        </div>
+      </div>
+    </section>
 
-  <section class="section-head"><h2>MQTT</h2></section>
-  <section class="card mqtt">
-    <div class="mqtt-row"><span>الحالة</span><b id="mqttState">غير متصل</b></div>
-    <label>MQTT WebSocket URL<input id="mqttUrl" value="wss://YOUR-HIVEMQ-WEBSOCKET-URL:8884/mqtt" autocomplete="off"></label>
-    <label>Username<input id="mqttUser" autocomplete="username"></label>
-    <label>Password<input id="mqttPass" type="password" autocomplete="current-password"></label>
-    <label>Topic<input id="mqttTopic" value="hydroponic" autocomplete="off"></label>
-    <button id="connectBtn" class="primary">اتصال بـ MQTT</button>
-  </section>
-</main>
+    <!-- Water Tank Level Card (Full Width) -->
+    <section class="grid-1">
+      <div class="card tank-card">
+        <div class="tank-info">
+          <span class="card-title">WATER TANK LEVEL</span>
+          <span class="tank-value">85%</span>
+        </div>
+        <div class="tank-container">
+          <div class="tank-fill" style="height: 85%;"></div>
+        </div>
+      </div>
+    </section>
 
-<nav class="bottom-nav">
-  <button class="active">⌂<small>الرئيسية</small></button>
-  <button onclick="document.querySelector('.controls').scrollIntoView({behavior:'smooth'})">⚙<small>التحكم</small></button>
-  <button onclick="document.querySelector('.settings').scrollIntoView({behavior:'smooth'})">📈<small>الإعدادات</small></button>
-  <button onclick="document.querySelector('.mqtt').scrollIntoView({behavior:'smooth'})">☁<small>MQTT</small></button>
-</nav>
+    <!-- System Controls Section -->
+    <section class="controls-section">
+      <h3>System Controls</h3>
 
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-<script src="app.js"></script>
+      <div class="control-card">
+        <div class="control-info">
+          <span class="ctrl-icon">⚙️</span>
+          <span>Irrigation Pump</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="pump-switch">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="control-card">
+        <div class="control-info">
+          <span class="ctrl-icon">💡</span>
+          <span>Grow Lights (LED)</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="light-switch" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="control-card">
+        <div class="control-info">
+          <span class="ctrl-icon">🧪</span>
+          <span>Nutrient Doser</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="doser-switch">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Device Health Section -->
+    <section class="health-section">
+      <h3>Device Health</h3>
+      <div class="grid-3">
+        <div class="health-card">
+          <div class="mini-progress">98%</div>
+          <span>Zone 1 Sensors</span>
+        </div>
+        <div class="health-card">
+          <div class="mini-progress">95%</div>
+          <span>Network Link</span>
+        </div>
+        <div class="health-card">
+          <div class="mini-progress">88%</div>
+          <span>Sensor Battery</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Bottom Navigation Bar -->
+  <nav class="bottom-nav">
+    <a href="index.html" class="nav-item active">
+      <span class="nav-icon">🏠</span>
+      <span>Dashboard</span>
+    </a>
+    <a href="analytics.html" class="nav-item">
+      <span class="nav-icon">📈</span>
+      <span>Insights</span>
+    </a>
+    <a href="zones.html" class="nav-item">
+      <span class="nav-icon">🌱</span>
+      <span>Zones</span>
+    </a>
+    <a href="settings.html" class="nav-item">
+      <span class="nav-icon">⚙️</span>
+      <span>Settings</span>
+    </a>
+  </nav>
+
+  <script src="pwa.js"></script>
+  <script src="app.js"></script>
 </body>
-</html>
+                                 </html>
+                                 
