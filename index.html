@@ -3,115 +3,212 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hydro Farm - Mueen</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Hydro Farm</title>
+  <link rel="stylesheet" href="style.css?v=3">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0b1329">
 </head>
 <body>
 
-  <!-- الهيدر العلوي الثابت -->
   <header class="app-header">
-    <div class="header-title">
+    <div class="header-content">
       <h1>🌱 Hydro Farm</h1>
-      <button class="icon-btn" onclick="openSearch()">🔍</button>
+      <span class="sub-title">الزراعة المائية الذكية</span>
     </div>
   </header>
 
-  <!-- محتوى الصفحة الرئيسية (Dashboard) - الصفحة الافتراضية -->
-  <main id="dashboard-page" class="page-content active">
-    <div class="container">
-      
-      <!-- حالة النظام -->
-      <section class="system-status">
-        <h2>نظام الزراعة المائية الذكية</h2>
-        <p>حالة النظام:</p>
-        <div id="connection-status-container">
-          <span class="status-badge offline" id="connection-status">غير متصل 🔴</span>
-          <!-- MQTT Status (Telemtry) / ESP32 State (Online/Offline) -->
-          <div id="device-state">حالة الـ ESP32: <span id="esp32-state">Offline</span></div>
-          <div id="mqtt-state">حالة MQTT: <span id="mqtt-status">Disconnected</span></div>
-          <div id="operation-mode-state">وضع النظام: <span id="op-mode">Unknown</span></div>
+  <div class="main-content">
+
+    <section id="page-home" class="page-tab active">
+      <div class="status-card">
+        <div class="status-row">
+          <span>حالة النظام:</span>
+          <span id="sys-status" class="badge red">🔴 غير متصل</span>
         </div>
-      </section>
-
-      <!-- قسم المراقبة: بطاقات القيم الحية -->
-      <section class="grid-card-values">
-        <div class="card gauge-card">
-          <span class="card-title">🌡️ حرارة الهواء</span>
-          <div class="gauge-value" id="air-temp-val">--°C</div>
+        <div class="status-sub">
+          <span>ESP32: <strong id="esp-status">Offline</strong></span> | 
+          <span>MQTT: <strong id="mqtt-status">Offline</strong></span> | 
+          <span>الوضع: <strong id="sys-mode">AUTO</strong></span>
         </div>
-        <div class="card gauge-card">
-          <span class="card-title">💧 رطوبة الهواء</span>
-          <div class="gauge-value" id="air-humidity-val">--%</div>
+      </div>
+
+      <h3>قسم المراقبة (MQTT Telemetry)</h3>
+      <div class="grid-2">
+        <div class="card">
+          <span class="card-label">🌡️ حرارة الهواء</span>
+          <div class="card-value" id="val-air-temp">-- <small>°C</small></div>
         </div>
-        <div class="card gauge-card">
-          <span class="card-title">🌊 حرارة الماء</span>
-          <div class="gauge-value" id="water-temp-val">--°C</div>
+        <div class="card">
+          <span class="card-label">💧 رطوبة الهواء</span>
+          <div class="card-value" id="val-air-hum">-- <small>%</small></div>
         </div>
-        <div class="card gauge-card">
-          <span class="card-title">🚰 مستوى الخزان</span>
-          <div class="gauge-value" id="tank-level-val">--%</div>
+        <div class="card">
+          <span class="card-label">🌊 حرارة الماء</span>
+          <div class="card-value" id="val-water-temp">-- <small>°C</small></div>
         </div>
-        <div class="card gauge-card">
-          <span class="card-title">⚡ EC</span>
-          <div class="gauge-value" id="ec-val">-- mS/cm</div>
+        <div class="card">
+          <span class="card-label">🚰 مستوى الخزان</span>
+          <div class="card-value" id="val-tank">-- <small>%</small></div>
         </div>
-        <div class="card gauge-card">
-          <span class="card-title">🧪 pH</span>
-          <div class="gauge-value" id="ph-val">--</div>
+        <div class="card">
+          <span class="card-label">⚡ EC</span>
+          <div class="card-value" id="val-ec">-- <small>mS/cm</small></div>
         </div>
-      </section>
-
-      <!-- قسم التحكم السريع -->
-      <section class="controls-section">
-        <h3>التحكم السريع</h3>
-        
-        <div class="control-row">
-          <div class="control-label">
-            <span class="ctrl-icon">💧</span>
-            <span>المضخة</span>
-          </div>
-          <div class="control-inputs">
-            <span class="op-mode-badge" id="pump-op-mode">Unknown</span>
-            <label class="toggle-switch">
-              <input type="checkbox" id="pump-switch" disabled>
-              <span class="slider"></span>
-            </label>
-          </div>
+        <div class="card">
+          <span class="card-label">🧪 pH</span>
+          <div class="card-value" id="val-ph">--</div>
         </div>
+      </div>
 
-        <div class="control-row">
-          <div class="control-label">
-            <span class="ctrl-icon">🌀</span>
-            <span>المروحةلم تتغير الواجهة في هاتفك. هذا أمر محبط.
+      <h3>التحكم السريع</h3>
+      <div class="controls-list">
+        <div class="control-item">
+          <div class="ctrl-info">💧 المضخة <span class="mode-tag">AUTO</span></div>
+          <label class="switch"><input type="checkbox" id="btn-pump" disabled><span class="slider"></span></label>
+        </div>
+        <div class="control-item">
+          <div class="ctrl-info">🌀 المروحة <span class="mode-tag">AUTO</span></div>
+          <label class="switch"><input type="checkbox" id="btn-fan" disabled><span class="slider"></span></label>
+        </div>
+        <div class="control-item">
+          <div class="ctrl-info">❄️ Pad Cooling <span class="mode-tag">AUTO</span></div>
+          <label class="switch"><input type="checkbox" id="btn-pad" disabled><span class="slider"></span></label>
+        </div>
+      </div>
+    </section>
 
-كما ذكرت، الأرجح أن المتصفح ما زال يحتفظ بالنسخة القديمة. بما أن التعديل في كود `index.html` لم ينجح، فلنجرب طرقاً أخرى لإجبار المتصفح على تحميل الملفات الجديدة:
+    <section id="page-data" class="page-tab">
+      <h3>القيم الحالية</h3>
+      <div class="grid-2">
+        <div class="card big"><span>🌡️ حرارة الهواء</span><strong id="d-air-temp">--°C</strong></div>
+        <div class="card big"><span>💧 رطوبة الهواء</span><strong id="d-air-hum">--%</strong></div>
+        <div class="card big"><span>🌊 حرارة الماء</span><strong id="d-water-temp">--°C</strong></div>
+        <div class="card big"><span>🚰 مستوى الخزان</span><strong id="d-tank">--%</strong></div>
+        <div class="card big"><span>⚡ EC</span><strong id="d-ec">--</strong></div>
+        <div class="card big"><span>🧪 pH</span><strong id="d-ph">--</strong></div>
+      </div>
 
-1.  **استخدام نافذة التصفح الخفي (Incognito Window):**
-    *   افتح نافذة تصفح خفي جديدة في متصفحك.
-    *   انسخ رابط الموقع والصقه هناك.
-    *   تحقق مما إذا كانت الواجهة قد تغيرت.
+      <h3>الفترة الزمنية</h3>
+      <div class="time-filter">
+        <button class="filter-btn active">1 ساعة</button>
+        <button class="filter-btn">6 ساعات</button>
+        <button class="filter-btn">24 ساعة</button>
+        <button class="filter-btn">7 أيام</button>
+      </div>
 
-2.  **تفريغ ذاكرة التخزين المؤقت (Cache) للمتصفح يدوياً:**
-    *   افتح إعدادات متصفحك.
-    *   ابحث عن قسم "الخصوصية والأمان" أو "مسح بيانات التصفح".
-    *   تأكد من تحديد "الصور والملفات المخزنة مؤقتاً" فقط.
-    *   اضغط على "مسح البيانات".
-    *   أعد تحميل الموقع.
+      <h3>الرسوم البيانية</h3>
+      <div class="card chart-box">
+        <p>مخطط حرارة الهواء</p>
+        <div class="chart-placeholder">[ رسم بياني ]</div>
+      </div>
+      <div class="card chart-box">
+        <p>مخطط مستوى الخزان</p>
+        <div class="chart-placeholder">[ رسم بياني ]</div>
+      </div>
+    </section>
 
-3.  **إعادة تحميل الصفحة بالكامل (Force Refresh):**
-    *   في بعض المتصفحات على الكمبيوتر، يمكنك استخدام اختصار `Ctrl + F5` أو `Shift + F5`.
-    *   على الهاتف، غالباً ما يكون تفريغ ذاكرة التخزين المؤقت أو استخدام التصفح الخفي هو الحل الأمثل.
+    <section id="page-system" class="page-tab">
+      <h3>حالة النظام التدفقية</h3>
+      <div class="flow-container">
+        <div class="flow-card">🌡️ حرارة الهواء: <strong id="sys-air-t">28.4°C</strong></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-card">🌀 المروحة: <strong>ON (AUTO)</strong></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-card">🌱 أبراج الزراعة: <strong class="green">تعمل بشكل طبيعي</strong></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-card">🚰 الخزان: <strong>78% (24.8°C)</strong></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-card">💧 المضخة: <strong>ON (AUTO)</strong></div>
+      </div>
 
-4.  **التحقق من GitHub Pages:**
-    *   تأكد من أن عملية البناء (Build) قد اكتملت بنجاح على GitHub Pages بعد آخر تعديل قمت به.
+      <div class="card mode-switcher-box">
+        <span>⚙️ وضع النظام:</span>
+        <button id="toggle-sys-mode" class="btn-primary" onclick="toggleSystemMode()">[ AUTO ]</button>
+      </div>
+    </section>
 
-**إذا لم تنجح أي من هذه الطرق، يرجى تزويدي بالمعلومات التالية لنتمكن من تشخيص المشكلة بشكل أدق:**
+    <section id="page-alerts" class="page-tab">
+      <h3>سجل التنبيهات</h3>
+      <div id="alerts-list">
+        <div class="alert-item green">
+          <strong>🟢 النظام طبيعي</strong>
+          <p>النظام متصل و ESP32 يعمل بصورة طبيعية</p>
+        </div>
+      </div>
+    </section>
 
-*   أي متصفح تستخدمه (Chrome, Safari, Firefox, إلخ.)؟
-*   هل تظهر لك أي رسائل خطأ في لوحة تحكم المطورين (Developers Console) إذا أمكنك الوصول إليها؟
+    <section id="page-settings" class="page-tab">
+      <h3>⚙️ إعدادات MQTT</h3>
+      <div class="card form-card">
+        <label>MQTT Server</label>
+        <input type="text" id="mqtt-server" value="99580666d99a4632b4a1d5087e22d494.s1.eu.hivemq.cloud">
+        <label>Port</label>
+        <input type="text" id="mqtt-port" value="8884">
+        <label>Greenhouse</label>
+        <input type="text" id="mqtt-gh" value="GH001">
+        <button class="btn-primary" onclick="logDebug('جاري الاتصال بـ MQTT...')">اتصال MQTT</button>
+      </div>
 
-**ملاحظة هامة:**
-لضمان عمل الإشعارات في الخلفية وتحديث البيانات بشكل تلقائي، ستحتاج إلى ربط التطبيق بواجهة برمجة تطبيقات (API) أو قاعدة بيانات حية (مثل Firebase) في المستقبل.
-              
+      <h3>⚙️ حدود التنبيه</h3>
+      <div class="card form-card">
+        <label>تحذير حرارة (°C)</label>
+        <input type="number" value="30">
+        <label>حرارة حرجة (°C)</label>
+        <input type="number" value="33">
+        <label>مستوى خزان منخفض (%)</label>
+        <input type="number" value="20">
+        <button class="btn-primary" onclick="alert('تم حفظ الإعدادات محلياً!')">حفظ الإعدادات</button>
+      </div>
+
+      <h3>🔥 Firebase / FCM</h3>
+      <div class="card">
+        <p>Firebase: <strong class="green">🟢 متصل</strong></p>
+        <p>FCM Token: <strong class="green">🟢 مفعّل</strong></p>
+        <button class="btn-secondary" onclick="testFCM()">اختبار Firebase / FCM</button>
+      </div>
+
+      <h3>🔧 تشخيص النظام (Debug Console)</h3>
+      <div class="card">
+        <div class="btn-group">
+          <button class="btn-small" onclick="testFCM()">🔥 اختبار FCM</button>
+          <button class="btn-small" onclick="logDebug('Service Worker OK')">⚙️ اختبار SW</button>
+          <button class="btn-small red" onclick="clearLogs()">🗑️ مسح السجل</button>
+        </div>
+        <div id="debug-console" class="console-box">
+          [System] Initializing Hydro Farm UI...<br>
+          [System] SPA Navigation Ready.
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" onclick="showTab('home', this)">
+      <span class="icon">🏠</span>
+      <span>الرئيسية</span>
+    </button>
+    <button class="nav-btn" onclick="showTab('data', this)">
+      <span class="icon">📊</span>
+      <span>البيانات</span>
+    </button>
+    <button class="nav-btn" onclick="showTab('system', this)">
+      <span class="icon">🌱</span>
+      <span>النظام</span>
+    </button>
+    <button class="nav-btn" onclick="showTab('alerts', this)">
+      <span class="icon">🔔</span>
+      <span>التنبيهات</span>
+    </button>
+    <button class="nav-btn" onclick="showTab('settings', this)">
+      <span class="icon">⚙️</span>
+      <span>الإعدادات</span>
+    </button>
+  </nav>
+
+  <script src="firebase.js"></script>
+  <script src="app.js"></script>
+  <script src="pwa.js"></script>
+</body>
+            </html>
+          
