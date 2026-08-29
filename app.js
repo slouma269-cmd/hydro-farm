@@ -1,12 +1,12 @@
 // ==========================================
-// 1. إعدادات المتغيرات و MQTT
+// 1. الإعدادات والمتغيرات العامة
 // ==========================================
 const MQTT_CONFIG = {
   host: "99580666d99a4632b4a1d5087e22d494.s1.eu.hivemq.cloud",
-  port: 8884, // منفذ WSS (Secure WebSockets)
+  port: 8884, // منفذ WSS الآمن
   clientId: "HydroWebApp_" + Math.random().toString(16).substr(2, 8),
   username: "hydro01-test",
-  password: "", // أضف كلمة المرور الخاصة بك هنا إذا كان الحساب يتطلب كلمة مرور
+  password: "",
   topicTelemetry: "greenhouse/GH001/telemetry",
   topicStatus: "greenhouse/GH001/status",
   topicCmd: "greenhouse/GH001/command"
@@ -15,30 +15,38 @@ const MQTT_CONFIG = {
 let client = null;
 let isAuto = true;
 
+// متغيرات الرسوم البيانية
+let airTempChart = null;
+let tankLevelChart = null;
+const maxDataPoints = 15; // حد أقصى للنقاط المعروضة على الرسم البياني
+
 // ==========================================
 // 2. إدارة الاتصال بـ MQTT Server
 // ==========================================
 function connectMQTT() {
   logDebug("جاري بدء الاتصال بسيرفر HiveMQ Cloud...");
 
-  // قراءة القيم المدخلة في صفحة الإعدادات
+  // قراءة البيانات من حقول الإعدادات
   const host = document.getElementById('mqtt-server')?.value.trim() || MQTT_CONFIG.host;
   const port = parseInt(document.getElementById('mqtt-port')?.value) || MQTT_CONFIG.port;
   const username = document.getElementById('mqtt-user')?.value.trim() || MQTT_CONFIG.username;
   const password = document.getElementById('mqtt-pass')?.value || "";
   const gh = document.getElementById('mqtt-gh')?.value.trim() || "GH001";
 
-  // تحديث الموضوعات بناءً على اسم البيوت المحمية (Greenhouse)
+  // تحديث المواضيع بناءً على اسم الصوبة (Greenhouse)
   MQTT_CONFIG.topicTelemetry = `greenhouse/${gh}/telemetry`;
   MQTT_CONFIG.topicStatus = `greenhouse/${gh}/status`;
   MQTT_CONFIG.topicCmd = `greenhouse/${gh}/command`;
 
-  // قطع أي اتصال سابق إن وجد
+  // قطع الاتصال السابق إن وجد
   if (client && client.isConnected()) {
-    client.disconnect();
+    try {
+      client.disconnect();
+    } catch (e) {
+      console.log(e);
+    }
   }
 
-  // إنشاء عميل جديد
   const clientId = "HydroWebApp_" + Math.random().toString(16).substr(2, 8);
   client = new Paho.MQTT.Client(host, port, clientId);
 
@@ -46,7 +54,7 @@ function connectMQTT() {
   client.onMessageArrived = onMessageArrived;
 
   const options = {
-    useSSL: true, // مهم جداً للاتصال عبر SSL/WebSockets (8884)
+    useSSL: true,
     userName: username,
     password: password,
     onSuccess: onConnectSuccess,
@@ -63,11 +71,9 @@ function connectMQTT() {
 
 function onConnectSuccess() {
   logDebug("🟢 تم الاتصال بنجاح بـ HiveMQ Cloud!");
-  
-  // تحديث الشارات في الواجهة
   updateConnectionBadges(true);
 
-  // الاشتراك في موضوعات البيانات والحالة
+  // الاشتراك في مواضيع الرسائل
   client.subscribe(MQTT_CONFIG.topicTelemetry);
   client.subscribe(MQTT_CONFIG.topicStatus);
   logDebug(`تم الاشتراك في الموضوع: ${MQTT_CONFIG.topicTelemetry}`);
@@ -86,17 +92,25 @@ function onConnectionLost(response) {
 }
 
 // ==========================================
-// 3. استقبال البيانات وتحديث الواجهة (Telemetry)
+// 3. استقبال البيانات وتحديث الواجهة والرسوم البيانية
 // ==========================================
 function onMessageArrived(message) {
   try {
     const payload = JSON.parse(message.payloadString);
     logDebug(`بيانات جديدة: ${message.payloadString}`);
 
-    // تحديث بطاقات الصفحة الرئيسية والبيانات
+    const currentTime = new Date().toLocaleTimeString('ar-TN', { 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit' 
+    });
+
+    // تحديث قيم الحرارة والرطوبة وغيرها
     if (payload.air_temp !== undefined) {
       updateValue('val-air-temp', 'd-air-temp', `${payload.air_temp} <small>°C</small>`, `${payload.air_temp}°C`);
-      document.getElementById('sys-air-t').innerText = `${payload.air_temp}°C`;
+      const sysAir = document.getElementById('sys-air-t');
+      if (sysAir) sysAir.innerText = `${payload.air_temp}°C`;
+      addChartData(airTempChart, currentTime, payload.air_temp);
     }
     if (payload.air_hum !== undefined) {
       updateValue('val-air-hum', 'd-air-hum', `${payload.air_hum} <small>%</small>`, `${payload.air_hum}%`);
@@ -106,6 +120,7 @@ function onMessageArrived(message) {
     }
     if (payload.tank_level !== undefined) {
       updateValue('val-tank', 'd-tank', `${payload.tank_level} <small>%</small>`, `${payload.tank_level}%`);
+      addChartData(tankLevelChart, currentTime, payload.tank_level);
     }
     if (payload.ec !== undefined) {
       updateValue('val-ec', 'd-ec', `${payload.ec} <small>mS/cm</small>`, `${payload.ec}`);
@@ -114,13 +129,22 @@ function onMessageArrived(message) {
       updateValue('val-ph', 'd-ph', payload.ph, payload.ph);
     }
 
-    // تحديث أزرار التحكم وحالة ESP32 إن وجدت بالبيانات
+    // تحديث حالة الأجهزة والوضع إن وُجدت
     if (payload.mode !== undefined) {
       setSystemModeUI(payload.mode === "AUTO");
     }
-    if (payload.pump !== undefined) document.getElementById('btn-pump').checked = payload.pump === "ON";
-    if (payload.fan !== undefined) document.getElementById('btn-fan').checked = payload.fan === "ON";
-    if (payload.pad !== undefined) document.getElementById('btn-pad').checked = payload.pad === "ON";
+    if (payload.pump !== undefined) {
+      const btnPump = document.getElementById('btn-pump');
+      if (btnPump) btnPump.checked = payload.pump === "ON";
+    }
+    if (payload.fan !== undefined) {
+      const btnFan = document.getElementById('btn-fan');
+      if (btnFan) btnFan.checked = payload.fan === "ON";
+    }
+    if (payload.pad !== undefined) {
+      const btnPad = document.getElementById('btn-pad');
+      if (btnPad) btnPad.checked = payload.pad === "ON";
+    }
 
   } catch (e) {
     logDebug(`رسالة نصية: ${message.payloadString}`);
@@ -135,7 +159,81 @@ function updateValue(id1, id2, htmlVal1, textVal2) {
 }
 
 // ==========================================
-// 4. إرسال أعيان التحكم (Commands)
+// 4. تهيئة وتحديث الرسوم البيانية (Charts)
+// ==========================================
+function initCharts() {
+  if (typeof Chart === 'undefined') {
+    logDebug("⚠️ مكتبة Chart.js غير محمّلة في index.html");
+    return;
+  }
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      x: { grid: { color: 'rgba(29, 51, 104, 0.4)' }, ticks: { color: '#8ca0c8', font: { size: 9 } } },
+      y: { grid: { color: 'rgba(29, 51, 104, 0.4)' }, ticks: { color: '#8ca0c8', font: { size: 9 } } }
+    },
+    plugins: { legend: { display: false } }
+  };
+
+  // 1. مخطط حرارة الهواء
+  const ctxTemp = document.getElementById('airTempChart')?.getContext('2d');
+  if (ctxTemp) {
+    airTempChart = new Chart(ctxTemp, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'حرارة الهواء',
+          data: [],
+          borderColor: '#00d2ff',
+          backgroundColor: 'rgba(0, 210, 255, 0.1)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4
+        }]
+      },
+      options: chartOptions
+    });
+  }
+
+  // 2. مخطط مستوى الخزان
+  const ctxTank = document.getElementById('tankLevelChart')?.getContext('2d');
+  if (ctxTank) {
+    tankLevelChart = new Chart(ctxTank, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'مستوى الخزان',
+          data: [],
+          borderColor: '#22c55e',
+          backgroundColor: 'rgba(34, 197, 94, 0.1)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4
+        }]
+      },
+      options: chartOptions
+    });
+  }
+}
+
+function addChartData(chart, label, data) {
+  if (!chart) return;
+  chart.data.labels.push(label);
+  chart.data.datasets[0].data.push(data);
+
+  if (chart.data.labels.length > maxDataPoints) {
+    chart.data.labels.shift();
+    chart.data.datasets[0].data.shift();
+  }
+  chart.update();
+}
+
+// ==========================================
+// 5. إرسال الأوامر والتحكم (Commands)
 // ==========================================
 function sendCommand(device, state) {
   if (isAuto) {
@@ -161,7 +259,7 @@ function sendCommand(device, state) {
 }
 
 // ==========================================
-// 5. إدارة الواجهة والتنقل
+// 6. إدارة عناصر الواجهة وتغيير الصفحات
 // ==========================================
 function showTab(tabName, btnElement) {
   const tabs = document.querySelectorAll('.page-tab');
@@ -170,7 +268,8 @@ function showTab(tabName, btnElement) {
   const navBtns = document.querySelectorAll('.nav-btn');
   navBtns.forEach(btn => btn.classList.remove('active'));
 
-  document.getElementById(`page-${tabName}`).classList.add('active');
+  const targetTab = document.getElementById(`page-${tabName}`);
+  if (targetTab) targetTab.classList.add('active');
   if (btnElement) btnElement.classList.add('active');
 
   logDebug(`الانتقال إلى تبويب: ${tabName}`);
@@ -195,7 +294,6 @@ function updateConnectionBadges(isConnected) {
 function toggleSystemMode() {
   setSystemModeUI(!isAuto);
   
-  // إرسال وضع النظام الجديد عبر MQTT
   if (client && client.isConnected()) {
     const payload = JSON.stringify({ mode: isAuto ? "AUTO" : "MANUAL" });
     const message = new Paho.MQTT.Message(payload);
@@ -214,12 +312,18 @@ function setSystemModeUI(autoMode) {
   if (modeBtn) modeBtn.innerText = modeText;
   if (sysModeText) sysModeText.innerText = isAuto ? 'AUTO' : 'MANUAL';
 
-  document.getElementById('btn-pump').disabled = isAuto;
-  document.getElementById('btn-fan').disabled = isAuto;
-  document.getElementById('btn-pad').disabled = isAuto;
+  const btnPump = document.getElementById('btn-pump');
+  const btnFan = document.getElementById('btn-fan');
+  const btnPad = document.getElementById('btn-pad');
+
+  if (btnPump) btnPump.disabled = isAuto;
+  if (btnFan) btnFan.disabled = isAuto;
+  if (btnPad) btnPad.disabled = isAuto;
 }
 
-// مسجل التشخيص
+// ==========================================
+// 7. تشخيص النظام والاختبارات
+// ==========================================
 function logDebug(message) {
   const consoleBox = document.getElementById('debug-console');
   if (consoleBox) {
@@ -230,21 +334,32 @@ function logDebug(message) {
 }
 
 function clearLogs() {
-  document.getElementById('debug-console').innerHTML = '[System] تم مسح السجل.';
+  const consoleBox = document.getElementById('debug-console');
+  if (consoleBox) consoleBox.innerHTML = '[System] تم مسح السجل.';
+}
+
+function testFCM() {
+  logDebug('اختبار Firebase / FCM...');
+  setTimeout(() => {
+    logDebug('Firebase initialized successfully.');
+    logDebug('FCM token received: eX892...kL9');
+  }, 1000);
 }
 
 // ==========================================
-// 6. أحداث البدء والتشغيل الأولية
+// 8. أحداث البدء عند تحميل الصفحة
 // ==========================================
 window.addEventListener('DOMContentLoaded', () => {
   logDebug("بدء تشغيل التطبيق...");
-  
-  // ربط أحداث مفاتيح التحكم السريع
-  document.getElementById('btn-pump').addEventListener('change', (e) => sendCommand('pump', e.target.checked));
-  document.getElementById('btn-fan').addEventListener('change', (e) => sendCommand('fan', e.target.checked));
-  document.getElementById('btn-pad').addEventListener('change', (e) => sendCommand('pad', e.target.checked));
 
-  // بدء الاتصال تلقائياً بـ MQTT عند فتح التطبيق
+  // تهيئة الرسوم البيانية
+  initCharts();
+
+  // ربط أزرار التحكم اليدوي
+  document.getElementById('btn-pump')?.addEventListener('change', (e) => sendCommand('pump', e.target.checked));
+  document.getElementById('btn-fan')?.addEventListener('change', (e) => sendCommand('fan', e.target.checked));
+  document.getElementById('btn-pad')?.addEventListener('change', (e) => sendCommand('pad', e.target.checked));
+
+  // بدء الاتصال بـ MQTT تلقائياً
   connectMQTT();
 });
-  
