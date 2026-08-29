@@ -1,148 +1,117 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Hydro Farm</title>
-<link rel="stylesheet" href="style.css?v=2">
+  <title>Hydro Farm - Mueen</title>
+  <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0b1329">
 </head>
 <body>
 
+  <!-- الهيدر العلوي الثابت -->
   <header class="app-header">
     <div class="header-title">
-      <h1>My Hydro Farm</h1>
-      <button class="icon-btn">🔍</button>
+      <h1>🌱 Hydro Farm</h1>
+      <button class="icon-btn" onclick="openSearch()">🔍</button>
     </div>
   </header>
 
-  <main class="container">
-
-    <!-- Quick Alert Banner -->
-    <div class="alert-card">
-      <span class="alert-icon">⚠️</span>
-      <div class="alert-content">
-        <h4>Quick Alerts</h4>
-        <p>Nutrient Low in Zone 1</p>
-      </div>
-    </div>
-
-    <!-- Gauges / Dashboard Grid -->
-    <section class="grid-2">
-      <!-- pH Gauge Card -->
-      <div class="card gauge-card">
-        <span class="card-title">pH LEVEL</span>
-        <div class="gauge-ring cyan-ring">
-          <span class="gauge-value">6.2</span>
-          <span class="gauge-icon">💧</span>
+  <!-- محتوى الصفحة الرئيسية (Dashboard) - الصفحة الافتراضية -->
+  <main id="dashboard-page" class="page-content active">
+    <div class="container">
+      
+      <!-- حالة النظام -->
+      <section class="system-status">
+        <h2>نظام الزراعة المائية الذكية</h2>
+        <p>حالة النظام:</p>
+        <div id="connection-status-container">
+          <span class="status-badge offline" id="connection-status">غير متصل 🔴</span>
+          <!-- MQTT Status (Telemtry) / ESP32 State (Online/Offline) -->
+          <div id="device-state">حالة الـ ESP32: <span id="esp32-state">Offline</span></div>
+          <div id="mqtt-state">حالة MQTT: <span id="mqtt-status">Disconnected</span></div>
+          <div id="operation-mode-state">وضع النظام: <span id="op-mode">Unknown</span></div>
         </div>
-      </div>
+      </section>
 
-      <!-- Water Temp / EC Card -->
-      <div class="card gauge-card">
-        <span class="card-title">WATER TEMP</span>
-        <div class="gauge-ring cyan-ring">
-          <span class="gauge-value">22.5°C</span>
-          <span class="gauge-icon">🌡️</span>
+      <!-- قسم المراقبة: بطاقات القيم الحية -->
+      <section class="grid-card-values">
+        <div class="card gauge-card">
+          <span class="card-title">🌡️ حرارة الهواء</span>
+          <div class="gauge-value" id="air-temp-val">--°C</div>
         </div>
-      </div>
-    </section>
-
-    <!-- Water Tank Level Card (Full Width) -->
-    <section class="grid-1">
-      <div class="card tank-card">
-        <div class="tank-info">
-          <span class="card-title">WATER TANK LEVEL</span>
-          <span class="tank-value">85%</span>
+        <div class="card gauge-card">
+          <span class="card-title">💧 رطوبة الهواء</span>
+          <div class="gauge-value" id="air-humidity-val">--%</div>
         </div>
-        <div class="tank-container">
-          <div class="tank-fill" style="height: 85%;"></div>
+        <div class="card gauge-card">
+          <span class="card-title">🌊 حرارة الماء</span>
+          <div class="gauge-value" id="water-temp-val">--°C</div>
         </div>
-      </div>
-    </section>
-
-    <!-- System Controls Section -->
-    <section class="controls-section">
-      <h3>System Controls</h3>
-
-      <div class="control-card">
-        <div class="control-info">
-          <span class="ctrl-icon">⚙️</span>
-          <span>Irrigation Pump</span>
+        <div class="card gauge-card">
+          <span class="card-title">🚰 مستوى الخزان</span>
+          <div class="gauge-value" id="tank-level-val">--%</div>
         </div>
-        <label class="toggle-switch">
-          <input type="checkbox" id="pump-switch">
-          <span class="slider"></span>
-        </label>
-      </div>
-
-      <div class="control-card">
-        <div class="control-info">
-          <span class="ctrl-icon">💡</span>
-          <span>Grow Lights (LED)</span>
+        <div class="card gauge-card">
+          <span class="card-title">⚡ EC</span>
+          <div class="gauge-value" id="ec-val">-- mS/cm</div>
         </div>
-        <label class="toggle-switch">
-          <input type="checkbox" id="light-switch" checked>
-          <span class="slider"></span>
-        </label>
-      </div>
-
-      <div class="control-card">
-        <div class="control-info">
-          <span class="ctrl-icon">🧪</span>
-          <span>Nutrient Doser</span>
+        <div class="card gauge-card">
+          <span class="card-title">🧪 pH</span>
+          <div class="gauge-value" id="ph-val">--</div>
         </div>
-        <label class="toggle-switch">
-          <input type="checkbox" id="doser-switch">
-          <span class="slider"></span>
-        </label>
-      </div>
-    </section>
+      </section>
 
-    <!-- Device Health Section -->
-    <section class="health-section">
-      <h3>Device Health</h3>
-      <div class="grid-3">
-        <div class="health-card">
-          <div class="mini-progress">98%</div>
-          <span>Zone 1 Sensors</span>
+      <!-- قسم التحكم السريع -->
+      <section class="controls-section">
+        <h3>التحكم السريع</h3>
+        
+        <div class="control-row">
+          <div class="control-label">
+            <span class="ctrl-icon">💧</span>
+            <span>المضخة</span>
+          </div>
+          <div class="control-inputs">
+            <span class="op-mode-badge" id="pump-op-mode">Unknown</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="pump-switch" disabled>
+              <span class="slider"></span>
+            </label>
+          </div>
         </div>
-        <div class="health-card">
-          <div class="mini-progress">95%</div>
-          <span>Network Link</span>
-        </div>
-        <div class="health-card">
-          <div class="mini-progress">88%</div>
-          <span>Sensor Battery</span>
-        </div>
-      </div>
-    </section>
 
-  </main>
+        <div class="control-row">
+          <div class="control-label">
+            <span class="ctrl-icon">🌀</span>
+            <span>المروحةلم تتغير الواجهة في هاتفك. هذا أمر محبط.
 
-  <!-- Bottom Navigation Bar -->
-  <nav class="bottom-nav">
-    <a href="index.html" class="nav-item active">
-      <span class="nav-icon">🏠</span>
-      <span>Dashboard</span>
-    </a>
-    <a href="analytics.html" class="nav-item">
-      <span class="nav-icon">📈</span>
-      <span>Insights</span>
-    </a>
-    <a href="zones.html" class="nav-item">
-      <span class="nav-icon">🌱</span>
-      <span>Zones</span>
-    </a>
-    <a href="settings.html" class="nav-item">
-      <span class="nav-icon">⚙️</span>
-      <span>Settings</span>
-    </a>
-  </nav>
+كما ذكرت، الأرجح أن المتصفح ما زال يحتفظ بالنسخة القديمة. بما أن التعديل في كود `index.html` لم ينجح، فلنجرب طرقاً أخرى لإجبار المتصفح على تحميل الملفات الجديدة:
 
-  <script src="pwa.js"></script>
-  <script src="app.js"></script>
-</body>
-                                 </html>
-                                 
+1.  **استخدام نافذة التصفح الخفي (Incognito Window):**
+    *   افتح نافذة تصفح خفي جديدة في متصفحك.
+    *   انسخ رابط الموقع والصقه هناك.
+    *   تحقق مما إذا كانت الواجهة قد تغيرت.
+
+2.  **تفريغ ذاكرة التخزين المؤقت (Cache) للمتصفح يدوياً:**
+    *   افتح إعدادات متصفحك.
+    *   ابحث عن قسم "الخصوصية والأمان" أو "مسح بيانات التصفح".
+    *   تأكد من تحديد "الصور والملفات المخزنة مؤقتاً" فقط.
+    *   اضغط على "مسح البيانات".
+    *   أعد تحميل الموقع.
+
+3.  **إعادة تحميل الصفحة بالكامل (Force Refresh):**
+    *   في بعض المتصفحات على الكمبيوتر، يمكنك استخدام اختصار `Ctrl + F5` أو `Shift + F5`.
+    *   على الهاتف، غالباً ما يكون تفريغ ذاكرة التخزين المؤقت أو استخدام التصفح الخفي هو الحل الأمثل.
+
+4.  **التحقق من GitHub Pages:**
+    *   تأكد من أن عملية البناء (Build) قد اكتملت بنجاح على GitHub Pages بعد آخر تعديل قمت به.
+
+**إذا لم تنجح أي من هذه الطرق، يرجى تزويدي بالمعلومات التالية لنتمكن من تشخيص المشكلة بشكل أدق:**
+
+*   أي متصفح تستخدمه (Chrome, Safari, Firefox, إلخ.)؟
+*   هل تظهر لك أي رسائل خطأ في لوحة تحكم المطورين (Developers Console) إذا أمكنك الوصول إليها؟
+
+**ملاحظة هامة:**
+لضمان عمل الإشعارات في الخلفية وتحديث البيانات بشكل تلقائي، ستحتاج إلى ربط التطبيق بواجهة برمجة تطبيقات (API) أو قاعدة بيانات حية (مثل Firebase) في المستقبل.
+              
