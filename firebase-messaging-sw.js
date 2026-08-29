@@ -12,13 +12,15 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
+// استقبال الإشعارات عندما يكون التطبيق في الخلفية أو مغلقاً
 messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
+  console.log('[firebase-messaging-sw.js] Received background message: ', payload);
 
-  const notificationTitle = payload.notification?.title || '🚨 تنبيه Hydro Farm';
+  const notificationTitle = payload.notification?.title || '🚨 تنبيه من المزرعة الذكية';
   const notificationOptions = {
-    body: payload.notification?.body || 'تحديث جديد من نظام المزرعة الذكية.',
-    icon: '/icon-192.png'
+    body: payload.notification?.body || 'تحديث جديد في قراءات المستشعرات.',
+    icon: './icon-192.png',
+    badge: './icon-192.png'
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
