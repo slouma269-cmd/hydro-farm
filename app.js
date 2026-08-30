@@ -182,7 +182,7 @@ function onMessageArrived(message) {
       second: '2-digit' 
     });
 
-    // 1. تحديث العدادات الدائرية (Gauges)
+    // 1. حرارة الهواء (نطاق: 0 إلى 50 درجة)
     if (payload.air_temp !== undefined) {
       updateGauge('gauge-air-temp', 'val-air-temp', payload.air_temp, 0, 50, '°C');
       const sysAir = document.getElementById('sys-air-t');
@@ -190,26 +190,33 @@ function onMessageArrived(message) {
       addChartData(airTempChart, currentTime, payload.air_temp);
     }
 
+    // 2. رطوبة الهواء (نطاق: 0 إلى 100%)
     if (payload.air_hum !== undefined) {
       updateGauge('gauge-air-hum', 'val-air-hum', payload.air_hum, 0, 100, '%');
     }
 
-    // 2. تحديث باقي الحساسات (البطاقات العادية)
+    // 3. حرارة الماء (نطاق: 0 إلى 50 درجة)
     if (payload.water_temp !== undefined) {
-      updateValue('val-water-temp', 'd-water-temp', `${payload.water_temp} <small>°C</small>`, `${payload.water_temp}°C`);
-    }
-    if (payload.tank_level !== undefined) {
-      updateValue('val-tank', 'd-tank', `${payload.tank_level} <small>%</small>`, `${payload.tank_level}%`);
-      addChartData(tankLevelChart, currentTime, payload.tank_level);
-    }
-    if (payload.ec !== undefined) {
-      updateValue('val-ec', 'd-ec', `${payload.ec} <small>mS/cm</small>`, `${payload.ec}`);
-    }
-    if (payload.ph !== undefined) {
-      updateValue('val-ph', 'd-ph', payload.ph, payload.ph);
+      updateGauge('gauge-water-temp', 'val-water-temp', payload.water_temp, 0, 50, '°C');
     }
 
-    // 3. تحديث حالات المشغلات والأوضاع
+    // 4. مستوى الخزان (نطاق: 0 إلى 100%)
+    if (payload.tank_level !== undefined) {
+      updateGauge('gauge-tank', 'val-tank', payload.tank_level, 0, 100, '%');
+      addChartData(tankLevelChart, currentTime, payload.tank_level);
+    }
+
+    // 5. درجة الحموضة pH (نطاق: 0 إلى 14)
+    if (payload.ph !== undefined) {
+      updateGauge('gauge-ph', 'val-ph', payload.ph, 0, 14, '');
+    }
+
+    // 6. الناقلية الكهربائية EC (نطاق: 0 إلى 5 mS/cm)
+    if (payload.ec !== undefined) {
+      updateGauge('gauge-ec', 'val-ec', payload.ec, 0, 5, 'mS/cm');
+    }
+
+    // 7. تحديث المشغلات والأوضاع
     if (payload.mode !== undefined) {
       setSystemModeUI(payload.mode === "AUTO");
     }
@@ -230,6 +237,7 @@ function onMessageArrived(message) {
     logDebug(`رسالة نصية: ${message.payloadString}`);
   }
 }
+
 
 
 // ==========================================
