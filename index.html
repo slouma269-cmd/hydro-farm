@@ -33,45 +33,76 @@
       </div>
 
       <h3>قسم المراقبة (MQTT Telemetry)</h3>
-      <div class="grid-2">
-        <!-- بطاقة حرارة الهواء -->
-<div class="gauge-card">
-  <span class="card-title">حرارة الهواء</span>
-  <div class="gauge-outer" id="gauge-air-temp">
-    <div class="gauge-inner">
-      <span class="gauge-value" id="val-air-temp">-- <small>°C</small></span>
-      <span class="gauge-icon">🌡️</span>
+      <div class="telemetry-grid">
+
+  <!-- حرارة الهواء -->
+  <div class="gauge-card">
+    <span class="card-title">حرارة الهواء</span>
+    <div class="gauge-outer" id="gauge-air-temp">
+      <div class="gauge-inner">
+        <span class="gauge-value" id="val-air-temp">-- <small>°C</small></span>
+        <span class="gauge-icon">🌡️</span>
+      </div>
     </div>
   </div>
+
+  <!-- رطوبة الهواء -->
+  <div class="gauge-card">
+    <span class="card-title">رطوبة الهواء</span>
+    <div class="gauge-outer" id="gauge-air-hum">
+      <div class="gauge-inner">
+        <span class="gauge-value" id="val-air-hum">-- <small>%</small></span>
+        <span class="gauge-icon">💧</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- حرارة الماء -->
+  <div class="gauge-card">
+    <span class="card-title">حرارة الماء</span>
+    <div class="gauge-outer" id="gauge-water-temp">
+      <div class="gauge-inner">
+        <span class="gauge-value" id="val-water-temp">-- <small>°C</small></span>
+        <span class="gauge-icon">🌊</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- مستوى الخزان -->
+  <div class="gauge-card">
+    <span class="card-title">مستوى الخزان</span>
+    <div class="gauge-outer" id="gauge-tank">
+      <div class="gauge-inner">
+        <span class="gauge-value" id="val-tank">-- <small>%</small></span>
+        <span class="gauge-icon">🚰</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- حموضة الماء pH -->
+  <div class="gauge-card">
+    <span class="card-title">مستوى pH</span>
+    <div class="gauge-outer" id="gauge-ph">
+      <div class="gauge-inner">
+        <span class="gauge-value" id="val-ph">--</span>
+        <span class="gauge-icon">🧪</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- الناقلية الكهربائية EC -->
+  <div class="gauge-card">
+    <span class="card-title">السماد EC</span>
+    <div class="gauge-outer" id="gauge-ec">
+      <div class="gauge-inner">
+        <span class="gauge-value" id="val-ec">-- <small>mS/cm</small></span>
+        <span class="gauge-icon">⚡</span>
+      </div>
+    </div>
+  </div>
+
 </div>
 
-<!-- بطاقة رطوبة الهواء -->
-<div class="gauge-card">
-  <span class="card-title">رطوبة الهواء</span>
-  <div class="gauge-outer" id="gauge-air-hum">
-    <div class="gauge-inner">
-      <span class="gauge-value" id="val-air-hum">-- <small>%</small></span>
-      <span class="gauge-icon">💧</span>
-    </div>
-  </div>
-</div>
-        <div class="card">
-          <span class="card-label">🌊 حرارة الماء</span>
-          <div class="card-value" id="val-water-temp">-- <small>°C</small></div>
-        </div>
-        <div class="card">
-          <span class="card-label">🚰 مستوى الخزان</span>
-          <div class="card-value" id="val-tank">-- <small>%</small></div>
-        </div>
-        <div class="card">
-          <span class="card-label">⚡ EC</span>
-          <div class="card-value" id="val-ec">-- <small>mS/cm</small></div>
-        </div>
-        <div class="card">
-          <span class="card-label">🧪 pH</span>
-          <div class="card-value" id="val-ph">--</div>
-        </div>
-      </div>
 
       <h3>التحكم السريع</h3>
       <div class="controls-list">
