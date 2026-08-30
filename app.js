@@ -150,7 +150,27 @@ function onConnectionLost(response) {
 // ==========================================
 // ==========================================
 // 3. استقبال البيانات وتحديث الواجهة والرسوم البيانية
-// ==========================================
+// ======================================
+// دالة تحديث العدادات الدائرية (Gauges)
+function updateGauge(gaugeId, valId, value, minVal, maxVal, unit) {
+  const gaugeEl = document.getElementById(gaugeId);
+  const valEl = document.getElementById(valId);
+  
+  if (valEl) {
+    valEl.innerHTML = unit ? `${value} <small>${unit}</small>` : `${value}`;
+  }
+
+  if (gaugeEl) {
+    // حساب النسبة المئوية وتحديد الزاوية من 0 إلى 360 درجة
+    const percentage = Math.min(Math.max((value - minVal) / (maxVal - minVal), 0), 1);
+    const degrees = percentage * 360;
+    
+    // تحديث لون التعبئة الدائري
+    gaugeEl.style.background = `conic-gradient(#00d2ff ${degrees}deg, #1e293b ${degrees}deg)`;
+  }
+}
+
+// دالة معالجة واستقبال بيانات MQTT
 function onMessageArrived(message) {
   try {
     const payload = JSON.parse(message.payloadString);
@@ -162,7 +182,7 @@ function onMessageArrived(message) {
       second: '2-digit' 
     });
 
-    // 1. استدعاءات العدادات الدائرية (Gauges)
+    // 1. تحديث العدادات الدائرية (Gauges)
     if (payload.air_temp !== undefined) {
       updateGauge('gauge-air-temp', 'val-air-temp', payload.air_temp, 0, 50, '°C');
       const sysAir = document.getElementById('sys-air-t');
@@ -174,7 +194,7 @@ function onMessageArrived(message) {
       updateGauge('gauge-air-hum', 'val-air-hum', payload.air_hum, 0, 100, '%');
     }
 
-    // 2. تحديث باقي البيانات العادية
+    // 2. تحديث باقي الحساسات (البطاقات العادية)
     if (payload.water_temp !== undefined) {
       updateValue('val-water-temp', 'd-water-temp', `${payload.water_temp} <small>°C</small>`, `${payload.water_temp}°C`);
     }
@@ -211,24 +231,6 @@ function onMessageArrived(message) {
   }
 }
 
-
-function updateGauge(gaugeId, valId, value, minVal, maxVal, unit) {
-  const gaugeEl = document.getElementById(gaugeId);
-  const valEl = document.getElementById(valId);
-  
-  if (valEl) {
-    valEl.innerHTML = `${value} <small>${unit}</small>`;
-  }
-
-  if (gaugeEl) {
-    // حساب النسبة المئوية للحرارة أو الرطوبة وتجميع زاوية الدرجة
-    const percentage = Math.min(Math.max((value - minVal) / (maxVal - minVal), 0), 1);
-    const degrees = percentage * 360;
-    
-    // تحديث التعبئة الدائرية بحركة انسيابية
-    gaugeEl.style.background = `conic-gradient(#00d2ff ${degrees}deg, #1e293b ${degrees}deg)`;
-  }
-}
 
 // ==========================================
 // 4. تهيئة وتحديث الرسوم البيانية (Charts)
