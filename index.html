@@ -34,14 +34,27 @@
 
       <h3>قسم المراقبة (MQTT Telemetry)</h3>
       <div class="grid-2">
-        <div class="card">
-          <span class="card-label">🌡️ حرارة الهواء</span>
-          <div class="card-value" id="val-air-temp">-- <small>°C</small></div>
-        </div>
-        <div class="card">
-          <span class="card-label">💧 رطوبة الهواء</span>
-          <div class="card-value" id="val-air-hum">-- <small>%</small></div>
-        </div>
+        <!-- بطاقة حرارة الهواء -->
+<div class="gauge-card">
+  <span class="card-title">حرارة الهواء</span>
+  <div class="gauge-outer" id="gauge-air-temp">
+    <div class="gauge-inner">
+      <span class="gauge-value" id="val-air-temp">-- <small>°C</small></span>
+      <span class="gauge-icon">🌡️</span>
+    </div>
+  </div>
+</div>
+
+<!-- بطاقة رطوبة الهواء -->
+<div class="gauge-card">
+  <span class="card-title">رطوبة الهواء</span>
+  <div class="gauge-outer" id="gauge-air-hum">
+    <div class="gauge-inner">
+      <span class="gauge-value" id="val-air-hum">-- <small>%</small></span>
+      <span class="gauge-icon">💧</span>
+    </div>
+  </div>
+</div>
         <div class="card">
           <span class="card-label">🌊 حرارة الماء</span>
           <div class="card-value" id="val-water-temp">-- <small>°C</small></div>
