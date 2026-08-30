@@ -153,4 +153,4 @@ window.onload = function() {
   initCharts();
   initMQTT();
 };
-                                              
+
