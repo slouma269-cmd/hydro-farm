@@ -148,6 +148,7 @@ function onConnectionLost(response) {
 }
 
 // ==========================================
+// ==========================================
 // 3. استقبال البيانات وتحديث الواجهة والرسوم البيانية
 // ==========================================
 function onMessageArrived(message) {
@@ -161,15 +162,19 @@ function onMessageArrived(message) {
       second: '2-digit' 
     });
 
+    // 1. استدعاءات العدادات الدائرية (Gauges)
     if (payload.air_temp !== undefined) {
-      updateValue('val-air-temp', 'd-air-temp', `${payload.air_temp} <small>°C</small>`, `${payload.air_temp}°C`);
+      updateGauge('gauge-air-temp', 'val-air-temp', payload.air_temp, 0, 50, '°C');
       const sysAir = document.getElementById('sys-air-t');
       if (sysAir) sysAir.innerText = `${payload.air_temp}°C`;
       addChartData(airTempChart, currentTime, payload.air_temp);
     }
+
     if (payload.air_hum !== undefined) {
-      updateValue('val-air-hum', 'd-air-hum', `${payload.air_hum} <small>%</small>`, `${payload.air_hum}%`);
+      updateGauge('gauge-air-hum', 'val-air-hum', payload.air_hum, 0, 100, '%');
     }
+
+    // 2. تحديث باقي البيانات العادية
     if (payload.water_temp !== undefined) {
       updateValue('val-water-temp', 'd-water-temp', `${payload.water_temp} <small>°C</small>`, `${payload.water_temp}°C`);
     }
@@ -184,6 +189,7 @@ function onMessageArrived(message) {
       updateValue('val-ph', 'd-ph', payload.ph, payload.ph);
     }
 
+    // 3. تحديث حالات المشغلات والأوضاع
     if (payload.mode !== undefined) {
       setSystemModeUI(payload.mode === "AUTO");
     }
@@ -205,11 +211,23 @@ function onMessageArrived(message) {
   }
 }
 
-function updateValue(id1, id2, htmlVal1, textVal2) {
-  const el1 = document.getElementById(id1);
-  const el2 = document.getElementById(id2);
-  if (el1) el1.innerHTML = htmlVal1;
-  if (el2) el2.innerText = textVal2;
+
+function updateGauge(gaugeId, valId, value, minVal, maxVal, unit) {
+  const gaugeEl = document.getElementById(gaugeId);
+  const valEl = document.getElementById(valId);
+  
+  if (valEl) {
+    valEl.innerHTML = `${value} <small>${unit}</small>`;
+  }
+
+  if (gaugeEl) {
+    // حساب النسبة المئوية للحرارة أو الرطوبة وتجميع زاوية الدرجة
+    const percentage = Math.min(Math.max((value - minVal) / (maxVal - minVal), 0), 1);
+    const degrees = percentage * 360;
+    
+    // تحديث التعبئة الدائرية بحركة انسيابية
+    gaugeEl.style.background = `conic-gradient(#00d2ff ${degrees}deg, #1e293b ${degrees}deg)`;
+  }
 }
 
 // ==========================================
