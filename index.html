@@ -11,98 +11,91 @@
 </head>
 <body>
 
+  <!-- Header -->
   <header class="app-header">
-    <div class="header-content">
-      <h1>🌱 Hydroponic Smart System</h1>
-      <span class="sub-title" id="sys-mode-status">نظام الزراعة المائية | وضع تلقائي</span>
+    <div class="header-title">
+      <h1>Hydroponic</h1>
+      <span>Smart System</span>
     </div>
+    <span class="status-chip" id="sys-status-badge">Auto Mode</span>
   </header>
 
   <main class="main-content">
 
     <!-- 1. DASHBOARD -->
     <section id="tab-dashboard" class="page-tab active">
-      <div class="status-card">
-        <div class="status-row">
-          <span>حالة الاتصال بالنظام</span>
-          <span class="badge green" id="sys-status-badge">جاري الاتصال...</span>
+      <div class="telemetry-grid">
+        <div class="telemetry-card">
+          <div class="card-header-line">
+            <span>Air Temp</span>
+            <i class="fa-solid fa-temperature-half"></i>
+          </div>
+          <div class="card-val" id="val-air-temp">27.8 <small>°C</small></div>
+          <div class="card-sparkline">↗ 27.8°C  10:20 AM</div>
         </div>
-        <div class="status-sub" id="sys-air-t">جاري استقبال البيانات...</div>
+
+        <div class="telemetry-card">
+          <div class="card-header-line">
+            <span>Humidity</span>
+            <i class="fa-solid fa-droplet"></i>
+          </div>
+          <div class="card-val" id="val-air-hum">68 <small>%</small></div>
+          <div class="card-sparkline">↗ 68%  10:20 AM</div>
+        </div>
+
+        <div class="telemetry-card">
+          <div class="card-header-line">
+            <span>Water Temp</span>
+            <i class="fa-solid fa-temperature-low"></i>
+          </div>
+          <div class="card-val" id="val-water-temp">23.4 <small>°C</small></div>
+          <div class="card-sparkline">↗ 23.4°C  10:20 AM</div>
+        </div>
+
+        <div class="telemetry-card">
+          <div class="card-header-line">
+            <span>Water Level</span>
+            <i class="fa-solid fa-water"></i>
+          </div>
+          <div class="card-val" id="val-tank">75 <small>%</small></div>
+          <div class="card-sparkline">↗ 75%  10:20 AM</div>
+        </div>
+
+        <div class="telemetry-card">
+          <div class="card-header-line">
+            <span>pH Level</span>
+            <i class="fa-solid fa-flask"></i>
+          </div>
+          <div class="card-val" id="val-ph">6.2</div>
+          <div class="card-sparkline">↗ 6.2  10:20 AM</div>
+        </div>
+
+        <div class="telemetry-card">
+          <div class="card-header-line">
+            <span>EC Level</span>
+            <i class="fa-solid fa-bolt"></i>
+          </div>
+          <div class="card-val" id="val-ec">1.58 <small>mS/cm</small></div>
+          <div class="card-sparkline">↗ 1.58  10:20 AM</div>
+        </div>
       </div>
 
-      <div class="telemetry-grid">
-        <div class="gauge-card">
-          <span class="card-title">حرارة الهواء</span>
-          <div class="gauge-outer" id="gauge-air-temp">
-            <div class="gauge-inner">
-              <span class="gauge-value" id="val-air-temp">-- <small>°C</small></span>
-              <span class="gauge-icon"><i class="fa-solid fa-temperature-high"></i></span>
-            </div>
-          </div>
-        </div>
-
-        <div class="gauge-card">
-          <span class="card-title">رطوبة الهواء</span>
-          <div class="gauge-outer" id="gauge-air-hum">
-            <div class="gauge-inner">
-              <span class="gauge-value" id="val-air-hum">-- <small>%</small></span>
-              <span class="gauge-icon"><i class="fa-solid fa-droplet"></i></span>
-            </div>
-          </div>
-        </div>
-
-        <div class="gauge-card">
-          <span class="card-title">حرارة الماء</span>
-          <div class="gauge-outer" id="gauge-water-temp">
-            <div class="gauge-inner">
-              <span class="gauge-value" id="val-water-temp">-- <small>°C</small></span>
-              <span class="gauge-icon"><i class="fa-solid fa-water"></i></span>
-            </div>
-          </div>
-        </div>
-
-        <div class="gauge-card">
-          <span class="card-title">مستوى الخزان</span>
-          <div class="gauge-outer" id="gauge-tank">
-            <div class="gauge-inner">
-              <span class="gauge-value" id="val-tank">-- <small>%</small></span>
-              <span class="gauge-icon"><i class="fa-solid fa-square-poll-vertical"></i></span>
-            </div>
-          </div>
-        </div>
-
-        <div class="gauge-card">
-          <span class="card-title">مستوى pH</span>
-          <div class="gauge-outer" id="gauge-ph">
-            <div class="gauge-inner">
-              <span class="gauge-value" id="val-ph">--</span>
-              <span class="gauge-icon"><i class="fa-solid fa-vial"></i></span>
-            </div>
-          </div>
-        </div>
-
-        <div class="gauge-card">
-          <span class="card-title">السماد EC</span>
-          <div class="gauge-outer" id="gauge-ec">
-            <div class="gauge-inner">
-              <span class="gauge-value" id="val-ec">-- <small>mS/cm</small></span>
-              <span class="gauge-icon"><i class="fa-solid fa-bolt"></i></span>
-            </div>
-          </div>
-        </div>
+      <div class="overview-box">
+        <h3 style="margin-top:0; font-size:1rem; color:var(--text-secondary);">Devices Overview</h3>
+        <canvas id="devicesDonutChart" height="180"></canvas>
       </div>
     </section>
 
     <!-- 2. DEVICES -->
     <section id="tab-devices" class="page-tab">
-      <h2 class="section-title">التحكم بالأجهزة والمضخات</h2>
-      <div class="controls-list">
-        <div class="control-item">
-          <div class="device-info">
-            <div class="device-icon-box"><i class="fa-solid fa-faucet-drip"></i></div>
-            <div class="device-details">
-              <strong>Pump 1 - Irrigation</strong>
-              <span>مضخة الري الرئيسية</span>
+      <div class="section-heading">Pumps Controls</div>
+      <div class="control-list-group">
+        <div class="control-card-item">
+          <div class="item-right">
+            <div class="icon-wrapper"><i class="fa-solid fa-faucet-drip"></i></div>
+            <div>
+              <p class="item-title">Pump 1 - Irrigation</p>
+              <p class="item-sub">Irrigation Pump • Running</p>
             </div>
           </div>
           <label class="switch">
@@ -111,12 +104,12 @@
           </label>
         </div>
 
-        <div class="control-item">
-          <div class="device-info">
-            <div class="device-icon-box"><i class="fa-solid fa-flask"></i></div>
-            <div class="device-details">
-              <strong>Pump 2 - Nutrient</strong>
-              <span>مضخة المحلول المغذي</span>
+        <div class="control-card-item">
+          <div class="item-right">
+            <div class="icon-wrapper"><i class="fa-solid fa-flask"></i></div>
+            <div>
+              <p class="item-title">Pump 2 - Nutrient</p>
+              <p class="item-sub">Nutrient Pump • Idle</p>
             </div>
           </div>
           <label class="switch">
@@ -124,59 +117,20 @@
             <span class="slider"></span>
           </label>
         </div>
+      </div>
 
-        <div class="control-item">
-          <div class="device-info">
-            <div class="device-icon-box"><i class="fa-solid fa-fill-drip"></i></div>
-            <div class="device-details">
-              <strong>Pump 3 - Main Tank Fill</strong>
-              <span>مضخة تعبئة الخزان</span>
-            </div>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="btn-pump3" onchange="toggleDevice('pump3', this.checked)">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="control-item">
-          <div class="device-info">
-            <div class="device-icon-box"><i class="fa-solid fa-snowflake"></i></div>
-            <div class="device-details">
-              <strong>Pump 4 - Pad Cooling</strong>
-              <span>مضخة التبريد التبخيري</span>
-            </div>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="btn-pad" onchange="toggleDevice('pad', this.checked)">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="control-item">
-          <div class="device-info">
-            <div class="device-icon-box"><i class="fa-solid fa-fan"></i></div>
-            <div class="device-details">
-              <strong>Fan 1 - Exhaust Fan</strong>
-              <span>مروحة الشفط والتبريد</span>
+      <div class="section-heading">Fans & Cooling</div>
+      <div class="control-list-group">
+        <div class="control-card-item">
+          <div class="item-right">
+            <div class="icon-wrapper"><i class="fa-solid fa-fan"></i></div>
+            <div>
+              <p class="item-title">Exhaust Fan (Fan 1)</p>
+              <p class="item-sub">Auto Mode • Running</p>
             </div>
           </div>
           <label class="switch">
             <input type="checkbox" id="btn-fan1" onchange="toggleDevice('fan1', this.checked)">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="control-item">
-          <div class="device-info">
-            <div class="device-icon-box"><i class="fa-solid fa-wind"></i></div>
-            <div class="device-details">
-              <strong>Fan 2 - Circulation Fan</strong>
-              <span>مروحة تحريك الهواء</span>
-            </div>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="btn-fan2" onchange="toggleDevice('fan2', this.checked)">
             <span class="slider"></span>
           </label>
         </div>
@@ -185,26 +139,40 @@
 
     <!-- 3. LIVE MONITORING -->
     <section id="tab-monitoring" class="page-tab">
-      <h2 class="section-title">المراقبة اللحظية</h2>
-      <div class="chart-card">
-        <h3>مخطط حرارة الهواء اللحظية (°C)</h3>
+      <div class="overview-box">
+        <h3>Water Temperature (°C)</h3>
         <canvas id="liveAirChart"></canvas>
       </div>
     </section>
 
     <!-- 4. HISTORY -->
     <section id="tab-history" class="page-tab">
-      <h2 class="section-title">سجل البيانات التاريخي</h2>
-      <div class="chart-card">
-        <h3>مستوى الخزان الرئيسي (%)</h3>
+      <div class="overview-box">
+        <h3>Water Level Logs (%)</h3>
         <canvas id="liveTankChart"></canvas>
       </div>
     </section>
 
     <!-- 5. MENU -->
     <section id="tab-menu" class="page-tab">
-      <h2 class="section-title">الإعدادات وسجل النظام</h2>
-      <div class="console-box" id="debug-console">-- سجل الرسائل اللحظية (System Log) --<br></div>
+      <div class="menu-nav-list">
+        <div class="menu-nav-item">
+          <span>لوحة التحكم الرئيسية</span>
+          <i class="fa-solid fa-chevron-left" style="color:var(--text-secondary);"></i>
+        </div>
+        <div class="menu-nav-item">
+          <span>المراقبة المباشرة</span>
+          <i class="fa-solid fa-chevron-left" style="color:var(--text-secondary);"></i>
+        </div>
+        <div class="menu-nav-item">
+          <span>سجل البيانات والتاريخ</span>
+          <i class="fa-solid fa-chevron-left" style="color:var(--text-secondary);"></i>
+        </div>
+        <div class="menu-nav-item">
+          <span>المغذيات والمحاليل</span>
+          <i class="fa-solid fa-chevron-left" style="color:var(--text-secondary);"></i>
+        </div>
+      </div>
     </section>
 
   </main>
@@ -213,27 +181,27 @@
   <nav class="bottom-nav">
     <button class="nav-btn active" onclick="switchTab('dashboard', this)">
       <i class="fa-solid fa-house"></i>
-      <span>الرئيسية</span>
+      <span>Dashboard</span>
     </button>
     <button class="nav-btn" onclick="switchTab('devices', this)">
       <i class="fa-solid fa-sliders"></i>
-      <span>الأجهزة</span>
+      <span>Devices</span>
     </button>
     <button class="nav-btn" onclick="switchTab('monitoring', this)">
       <i class="fa-solid fa-chart-line"></i>
-      <span>المراقبة</span>
+      <span>Monitoring</span>
     </button>
     <button class="nav-btn" onclick="switchTab('history', this)">
       <i class="fa-solid fa-clock-rotate-left"></i>
-      <span>السجل</span>
+      <span>History</span>
     </button>
     <button class="nav-btn" onclick="switchTab('menu', this)">
       <i class="fa-solid fa-bars"></i>
-      <span>القائمة</span>
+      <span>Menu</span>
     </button>
   </nav>
 
   <script src="app.js"></script>
 </body>
-  </html>
-            
+                                                                       </html>
+  
