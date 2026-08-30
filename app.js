@@ -125,6 +125,21 @@ function logDebug(msg) {
 }
 
 function initCharts() {
+  const ctxDonut = document.getElementById('devicesDonutChart').getContext('2d');
+new Chart(ctxDonut, {
+  type: 'doughnut',
+  data: {
+    labels: ['Running', 'Idle', 'Off', 'Alert'],
+    datasets: [{
+      data: [5, 1, 2, 1],
+      backgroundColor: ['#22c55e', '#0284c7', '#94a3b8', '#ef4444']
+    }]
+  },
+  options: {
+    plugins: { legend: { position: 'right' } },
+    cutout: '70%'
+  }
+});
   const ctxAir = document.getElementById('liveAirChart').getContext('2d');
   airTempChart = new Chart(ctxAir, {
     type: 'line',
