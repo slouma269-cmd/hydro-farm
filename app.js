@@ -1,157 +1,23 @@
-// ==========================================
-// 1. الإعدادات والمتغيرات العامة
-// ==========================================
 const MQTT_CONFIG = {
-  host: "99580666d99a4632b4a1d5087e22d494.s1.eu.hivemq.cloud",
+  host: "broker.hivemq.com",
   port: 8884,
-  clientId: "HydroWebApp_" + Math.random().toString(16).substr(2, 8),
-  username: "hydro01-test",
-  password: "",
+  path: "/mqtt",
+  clientId: "Web_App_" + Math.random().toString(16).substr(2, 8),
   topicTelemetry: "greenhouse/GH001/telemetry",
-  topicStatus: "greenhouse/GH001/status",
-  topicCmd: "greenhouse/GH001/command"
+  topicCommands: "greenhouse/GH001/commands"
 };
 
-let client = null;
-let isAuto = true;
+let client;
+let airTempChart, tankLevelChart;
 
-// متغيرات الرسوم البيانية
-let airTempChart = null;
-let tankLevelChart = null;
-const maxDataPoints = 15;
+function switchTab(tabId, btnElement) {
+  document.querySelectorAll('.page-tab').forEach(tab => tab.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
 
-// ==========================================
-// 2. إدارة الاتصال والتخزين المحلي (localStorage)
-// ==========================================
-
-// حفظ البيانات في ذاكرة الهاتف/المتصفح
-function saveSettingsToLocalStorage(host, port, username, password, gh) {
-  try {
-    localStorage.setItem('mqtt_host', host);
-    localStorage.setItem('mqtt_port', port);
-    localStorage.setItem('mqtt_user', username);
-    localStorage.setItem('mqtt_pass', password);
-    localStorage.setItem('mqtt_gh', gh);
-    logDebug("💾 تم حفظ بيانات الاتصال كلمة المرور في الذاكرة المحلية بنجاح.");
-  } catch (e) {
-    console.error("فشل حفظ البيانات في localStorage", e);
-  }
+  document.getElementById(`tab-${tabId}`).classList.add('active');
+  if (btnElement) btnElement.classList.add('active');
 }
 
-// استرجاع البيانات المحفوظة عند فتح التطبيق
-function loadSettingsFromLocalStorage() {
-  const savedHost = localStorage.getItem('mqtt_host');
-  const savedPort = localStorage.getItem('mqtt_port');
-  const savedUser = localStorage.getItem('mqtt_user');
-  const savedPass = localStorage.getItem('mqtt_pass');
-  const savedGh = localStorage.getItem('mqtt_gh');
-
-  if (savedHost) {
-    const el = document.getElementById('mqtt-server');
-    if (el) el.value = savedHost;
-  }
-  if (savedPort) {
-    const el = document.getElementById('mqtt-port');
-    if (el) el.value = savedPort;
-  }
-  if (savedUser) {
-    const el = document.getElementById('mqtt-user');
-    if (el) el.value = savedUser;
-  }
-  if (savedPass) {
-    const el = document.getElementById('mqtt-pass');
-    if (el) el.value = savedPass;
-  }
-  if (savedGh) {
-    const el = document.getElementById('mqtt-gh');
-    if (el) el.value = savedGh;
-  }
-
-  // إرجاع القيم المسترجعة أو الافتراضية
-  return {
-    host: savedHost || MQTT_CONFIG.host,
-    port: parseInt(savedPort) || MQTT_CONFIG.port,
-    username: savedUser || MQTT_CONFIG.username,
-    password: savedPass || MQTT_CONFIG.password,
-    gh: savedGh || "GH001"
-  };
-}
-
-function connectMQTT() {
-  logDebug("جاري بدء الاتصال بسيرفر HiveMQ Cloud...");
-
-  // جلب القيم المسترجعة أو إدخال المستخدم الحالي
-  const settings = loadSettingsFromLocalStorage();
-
-  const host = document.getElementById('mqtt-server')?.value.trim() || settings.host;
-  const port = parseInt(document.getElementById('mqtt-port')?.value) || settings.port;
-  const username = document.getElementById('mqtt-user')?.value.trim() || settings.username;
-  const password = document.getElementById('mqtt-pass')?.value || settings.password;
-  const gh = document.getElementById('mqtt-gh')?.value.trim() || settings.gh;
-
-  // حفظ التغييرات الحالية دائماً لاستخدامها المرة القادمة تلقائياً
-  saveSettingsToLocalStorage(host, port, username, password, gh);
-
-  MQTT_CONFIG.topicTelemetry = `greenhouse/${gh}/telemetry`;
-  MQTT_CONFIG.topicStatus = `greenhouse/${gh}/status`;
-  MQTT_CONFIG.topicCmd = `greenhouse/${gh}/command`;
-
-  if (client && client.isConnected()) {
-    try {
-      client.disconnect();
-    } catch (e) {
-      console.log(e);
-    }
-  }
-
-  const clientId = "HydroWebApp_" + Math.random().toString(16).substr(2, 8);
-  client = new Paho.MQTT.Client(host, port, clientId);
-
-  client.onConnectionLost = onConnectionLost;
-  client.onMessageArrived = onMessageArrived;
-
-  const options = {
-    useSSL: true,
-    userName: username,
-    password: password,
-    onSuccess: onConnectSuccess,
-    onFailure: onConnectFailure,
-    keepAliveInterval: 30
-  };
-
-  try {
-    client.connect(options);
-  } catch (err) {
-    logDebug(`🔴 خطأ أثناء الاتصال: ${err.message}`);
-  }
-}
-
-function onConnectSuccess() {
-  logDebug("🟢 تم الاتصال بنجاح بـ HiveMQ Cloud!");
-  updateConnectionBadges(true);
-
-  client.subscribe(MQTT_CONFIG.topicTelemetry);
-  client.subscribe(MQTT_CONFIG.topicStatus);
-  logDebug(`تم الاشتراك في الموضوع: ${MQTT_CONFIG.topicTelemetry}`);
-}
-
-function onConnectFailure(response) {
-  logDebug(`🔴 فشل الاتصال: ${response.errorMessage}`);
-  updateConnectionBadges(false);
-}
-
-function onConnectionLost(response) {
-  if (response.errorCode !== 0) {
-    logDebug(`🔴 انقطع الاتصال: ${response.errorMessage}`);
-    updateConnectionBadges(false);
-  }
-}
-
-// ==========================================
-// ==========================================
-// 3. استقبال البيانات وتحديث الواجهة والرسوم البيانية
-// ======================================
-// دالة تحديث العدادات الدائرية (Gauges)
 function updateGauge(gaugeId, valId, value, minVal, maxVal, unit) {
   const gaugeEl = document.getElementById(gaugeId);
   const valEl = document.getElementById(valId);
@@ -161,281 +27,130 @@ function updateGauge(gaugeId, valId, value, minVal, maxVal, unit) {
   }
 
   if (gaugeEl) {
-    // حساب النسبة المئوية وتحديد الزاوية من 0 إلى 360 درجة
     const percentage = Math.min(Math.max((value - minVal) / (maxVal - minVal), 0), 1);
     const degrees = percentage * 360;
-    
-    // تحديث لون التعبئة الدائري
     gaugeEl.style.background = `conic-gradient(#00d2ff ${degrees}deg, #1e293b ${degrees}deg)`;
   }
 }
 
-// دالة معالجة واستقبال بيانات MQTT
+function initMQTT() {
+  logDebug("جاري الاتصال بخادم HiveMQ MQTT...");
+  client = new Paho.MQTT.Client(MQTT_CONFIG.host, Number(MQTT_CONFIG.port), MQTT_CONFIG.path, MQTT_CONFIG.clientId);
+
+  client.onConnectionLost = onConnectionLost;
+  client.onMessageArrived = onMessageArrived;
+
+  client.connect({
+    onSuccess: onConnect,
+    onFailure: onFail,
+    useSSL: true
+  });
+}
+
+function onConnect() {
+  logDebug("تم الاتصال بنجاح بخادم MQTT!");
+  document.getElementById('sys-status-badge').innerText = "متصل بالشبكة";
+  document.getElementById('sys-status-badge').className = "badge green";
+  client.subscribe(MQTT_CONFIG.topicTelemetry);
+}
+
+function onFail(responseObject) {
+  logDebug("فشل الاتصال: " + responseObject.errorMessage);
+  document.getElementById('sys-status-badge').innerText = "غير متصل";
+  document.getElementById('sys-status-badge').className = "badge red";
+}
+
+function onConnectionLost(responseObject) {
+  if (responseObject.errorCode !== 0) {
+    logDebug("انقطع الاتصال: " + responseObject.errorMessage);
+  }
+}
+
 function onMessageArrived(message) {
   try {
     const payload = JSON.parse(message.payloadString);
-    logDebug(`بيانات جديدة: ${message.payloadString}`);
+    logDebug(`بيانات واردة: ${message.payloadString}`);
 
     const currentTime = new Date().toLocaleTimeString('ar-TN', { 
-      hour: '2-digit', 
-      minute: '2-digit', 
-      second: '2-digit' 
+      hour: '2-digit', minute: '2-digit', second: '2-digit' 
     });
 
-    // 1. حرارة الهواء (نطاق: 0 إلى 50 درجة)
     if (payload.air_temp !== undefined) {
       updateGauge('gauge-air-temp', 'val-air-temp', payload.air_temp, 0, 50, '°C');
       const sysAir = document.getElementById('sys-air-t');
-      if (sysAir) sysAir.innerText = `${payload.air_temp}°C`;
+      if (sysAir) sysAir.innerText = `حرارة الهواء الحالية: ${payload.air_temp}°C`;
       addChartData(airTempChart, currentTime, payload.air_temp);
     }
-
-    // 2. رطوبة الهواء (نطاق: 0 إلى 100%)
-    if (payload.air_hum !== undefined) {
-      updateGauge('gauge-air-hum', 'val-air-hum', payload.air_hum, 0, 100, '%');
-    }
-
-    // 3. حرارة الماء (نطاق: 0 إلى 50 درجة)
-    if (payload.water_temp !== undefined) {
-      updateGauge('gauge-water-temp', 'val-water-temp', payload.water_temp, 0, 50, '°C');
-    }
-
-    // 4. مستوى الخزان (نطاق: 0 إلى 100%)
+    if (payload.air_hum !== undefined) updateGauge('gauge-air-hum', 'val-air-hum', payload.air_hum, 0, 100, '%');
+    if (payload.water_temp !== undefined) updateGauge('gauge-water-temp', 'val-water-temp', payload.water_temp, 0, 50, '°C');
     if (payload.tank_level !== undefined) {
       updateGauge('gauge-tank', 'val-tank', payload.tank_level, 0, 100, '%');
       addChartData(tankLevelChart, currentTime, payload.tank_level);
     }
+    if (payload.ph !== undefined) updateGauge('gauge-ph', 'val-ph', payload.ph, 0, 14, '');
+    if (payload.ec !== undefined) updateGauge('gauge-ec', 'val-ec', payload.ec, 0, 5, 'mS/cm');
 
-    // 5. درجة الحموضة pH (نطاق: 0 إلى 14)
-    if (payload.ph !== undefined) {
-      updateGauge('gauge-ph', 'val-ph', payload.ph, 0, 14, '');
-    }
-
-    // 6. الناقلية الكهربائية EC (نطاق: 0 إلى 5 mS/cm)
-    if (payload.ec !== undefined) {
-      updateGauge('gauge-ec', 'val-ec', payload.ec, 0, 5, 'mS/cm');
-    }
-
-    // 7. تحديث المشغلات والأوضاع
-    if (payload.mode !== undefined) {
-      setSystemModeUI(payload.mode === "AUTO");
-    }
-    if (payload.pump !== undefined) {
-      const btnPump = document.getElementById('btn-pump');
-      if (btnPump) btnPump.checked = payload.pump === "ON";
-    }
-    if (payload.fan !== undefined) {
-      const btnFan = document.getElementById('btn-fan');
-      if (btnFan) btnFan.checked = payload.fan === "ON";
-    }
-    if (payload.pad !== undefined) {
-      const btnPad = document.getElementById('btn-pad');
-      if (btnPad) btnPad.checked = payload.pad === "ON";
-    }
+    if (payload.pump1 !== undefined) document.getElementById('btn-pump1').checked = (payload.pump1 === "ON");
+    if (payload.pump2 !== undefined) document.getElementById('btn-pump2').checked = (payload.pump2 === "ON");
+    if (payload.pump3 !== undefined) document.getElementById('btn-pump3').checked = (payload.pump3 === "ON");
+    if (payload.pad !== undefined) document.getElementById('btn-pad').checked = (payload.pad === "ON");
+    if (payload.fan1 !== undefined) document.getElementById('btn-fan1').checked = (payload.fan1 === "ON");
+    if (payload.fan2 !== undefined) document.getElementById('btn-fan2').checked = (payload.fan2 === "ON");
 
   } catch (e) {
-    logDebug(`رسالة نصية: ${message.payloadString}`);
+    logDebug(`خطأ في البيانات: ${e.message}`);
   }
 }
 
-
-
-// ==========================================
-// 4. تهيئة وتحديث الرسوم البيانية (Charts)
-// ==========================================
-function initCharts() {
-  if (typeof Chart === 'undefined') {
-    logDebug("⚠️ مكتبة Chart.js غير محمّلة في index.html");
-    return;
-  }
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      x: { grid: { color: 'rgba(29, 51, 104, 0.4)' }, ticks: { color: '#8ca0c8', font: { size: 9 } } },
-      y: { grid: { color: 'rgba(29, 51, 104, 0.4)' }, ticks: { color: '#8ca0c8', font: { size: 9 } } }
-    },
-    plugins: { legend: { display: false } }
-  };
-
-  const ctxTemp = document.getElementById('airTempChart')?.getContext('2d');
-  if (ctxTemp) {
-    airTempChart = new Chart(ctxTemp, {
-      type: 'line',
-      data: {
-        labels: [],
-        datasets: [{
-          label: 'حرارة الهواء',
-          data: [],
-          borderColor: '#00d2ff',
-          backgroundColor: 'rgba(0, 210, 255, 0.1)',
-          borderWidth: 2,
-          fill: true,
-          tension: 0.4
-        }]
-      },
-      options: chartOptions
-    });
-  }
-
-  const ctxTank = document.getElementById('tankLevelChart')?.getContext('2d');
-  if (ctxTank) {
-    tankLevelChart = new Chart(ctxTank, {
-      type: 'line',
-      data: {
-        labels: [],
-        datasets: [{
-          label: 'مستوى الخزان',
-          data: [],
-          borderColor: '#22c55e',
-          backgroundColor: 'rgba(34, 197, 94, 0.1)',
-          borderWidth: 2,
-          fill: true,
-          tension: 0.4
-        }]
-      },
-      options: chartOptions
-    });
-  }
-}
-
-function addChartData(chart, label, data) {
-  if (!chart) return;
-  chart.data.labels.push(label);
-  chart.data.datasets[0].data.push(data);
-
-  if (chart.data.labels.length > maxDataPoints) {
-    chart.data.labels.shift();
-    chart.data.datasets[0].data.shift();
-  }
-  chart.update();
-}
-
-// ==========================================
-// 5. إرسال الأوامر والتحكم (Commands)
-// ==========================================
-function sendCommand(device, state) {
-  if (isAuto) {
-    alert("النظام حالياً في وضع AUTO! قُم بالتحويل إلى MANUAL للتحكم اليدوي.");
-    return;
-  }
+function toggleDevice(deviceName, state) {
   if (!client || !client.isConnected()) {
-    alert("MQTT غير متصل!");
+    alert("التطبيق غير متصل بخادم MQTT");
     return;
   }
-
-  const payload = JSON.stringify({
-    device: device,
-    action: state ? "ON" : "OFF",
-    timestamp: Date.now()
-  });
-
-  const message = new Paho.MQTT.Message(payload);
-  message.destinationName = MQTT_CONFIG.topicCmd;
-  client.send(message);
-
-  logDebug(`إرسال أمر [${device}]: ${state ? "ON" : "OFF"}`);
-}
-
-// ==========================================
-// 6. إدارة عناصر الواجهة وتغيير الصفحات
-// ==========================================
-function showTab(tabName, btnElement) {
-  const tabs = document.querySelectorAll('.page-tab');
-  tabs.forEach(tab => tab.classList.remove('active'));
-
-  const navBtns = document.querySelectorAll('.nav-btn');
-  navBtns.forEach(btn => btn.classList.remove('active'));
-
-  const targetTab = document.getElementById(`page-${tabName}`);
-  if (targetTab) targetTab.classList.add('active');
-  if (btnElement) btnElement.classList.add('active');
-
-  logDebug(`الانتقال إلى تبويب: ${tabName}`);
-}
-
-function updateConnectionBadges(isConnected) {
-  const sysStatus = document.getElementById('sys-status');
-  const mqttStatus = document.getElementById('mqtt-status');
-  const espStatus = document.getElementById('esp-status');
-
-  if (isConnected) {
-    if (sysStatus) { sysStatus.className = "badge green"; sysStatus.innerText = "🟢 متصل"; }
-    if (mqttStatus) { mqttStatus.innerText = "Online"; mqttStatus.style.color = "#22c55e"; }
-    if (espStatus) { espStatus.innerText = "Online"; espStatus.style.color = "#22c55e"; }
-  } else {
-    if (sysStatus) { sysStatus.className = "badge red"; sysStatus.innerText = "🔴 غير متصل"; }
-    if (mqttStatus) { mqttStatus.innerText = "Offline"; mqttStatus.style.color = "#ef4444"; }
-    if (espStatus) { espStatus.innerText = "Offline"; espStatus.style.color = "#ef4444"; }
-  }
-}
-
-function toggleSystemMode() {
-  setSystemModeUI(!isAuto);
+  const cmdObj = {};
+  cmdObj[deviceName] = state ? "ON" : "OFF";
   
-  if (client && client.isConnected()) {
-    const payload = JSON.stringify({ mode: isAuto ? "AUTO" : "MANUAL" });
-    const message = new Paho.MQTT.Message(payload);
-    message.destinationName = MQTT_CONFIG.topicCmd;
-    client.send(message);
-    logDebug(`تم تغيير وضع النظام إلى: ${isAuto ? "AUTO" : "MANUAL"}`);
-  }
+  const message = new Paho.MQTT.Message(JSON.stringify(cmdObj));
+  message.destinationName = MQTT_CONFIG.topicCommands;
+  client.send(message);
+  logDebug(`تم إرسال أمر: ${JSON.stringify(cmdObj)}`);
 }
 
-function setSystemModeUI(autoMode) {
-  isAuto = autoMode;
-  const modeBtn = document.getElementById('toggle-sys-mode');
-  const sysModeText = document.getElementById('sys-mode');
-  const modeText = isAuto ? '[ AUTO ]' : '[ MANUAL ]';
-
-  if (modeBtn) modeBtn.innerText = modeText;
-  if (sysModeText) sysModeText.innerText = isAuto ? 'AUTO' : 'MANUAL';
-
-  const btnPump = document.getElementById('btn-pump');
-  const btnFan = document.getElementById('btn-fan');
-  const btnPad = document.getElementById('btn-pad');
-
-  if (btnPump) btnPump.disabled = isAuto;
-  if (btnFan) btnFan.disabled = isAuto;
-  if (btnPad) btnPad.disabled = isAuto;
-}
-
-// ==========================================
-// 7. تشخيص النظام والاختبارات
-// ==========================================
-function logDebug(message) {
+function logDebug(msg) {
   const consoleBox = document.getElementById('debug-console');
   if (consoleBox) {
-    const time = new Date().toLocaleTimeString('ar-TN');
-    consoleBox.innerHTML += `<br>[${time}] ${message}`;
+    consoleBox.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>`;
     consoleBox.scrollTop = consoleBox.scrollHeight;
   }
 }
 
-function clearLogs() {
-  const consoleBox = document.getElementById('debug-console');
-  if (consoleBox) consoleBox.innerHTML = '[System] تم مسح السجل.';
+function initCharts() {
+  const ctxAir = document.getElementById('liveAirChart').getContext('2d');
+  airTempChart = new Chart(ctxAir, {
+    type: 'line',
+    data: { labels: [], datasets: [{ label: 'حرارة الهواء (°C)', data: [], borderColor: '#00d2ff', fill: false }] }
+  });
+
+  const ctxTank = document.getElementById('liveTankChart').getContext('2d');
+  tankLevelChart = new Chart(ctxTank, {
+    type: 'line',
+    data: { labels: [], datasets: [{ label: 'مستوى الخزان (%)', data: [], borderColor: '#22c55e', fill: true }] }
+  });
 }
 
-// ==========================================
-// 8. أحداث البدء عند تحميل الصفحة
-// ==========================================
-window.addEventListener('DOMContentLoaded', () => {
-  logDebug("بدء تشغيل التطبيق...");
+function addChartData(chart, label, data) {
+  if (!chart) return;
+  if (chart.data.labels.length > 10) {
+    chart.data.labels.shift();
+    chart.data.datasets[0].data.shift();
+  }
+  chart.data.labels.push(label);
+  chart.data.datasets[0].data.push(data);
+  chart.update();
+}
 
-  // تحميل الإعدادات المحفوظة ساباقاً في ذاكرة الجهاز
-  loadSettingsFromLocalStorage();
-
-  // تهيئة الرسوم البيانية
+window.onload = function() {
   initCharts();
-
-  // ربط أزرار التحكم اليدوي
-  document.getElementById('btn-pump')?.addEventListener('change', (e) => sendCommand('pump', e.target.checked));
-  document.getElementById('btn-fan')?.addEventListener('change', (e) => sendCommand('fan', e.target.checked));
-  document.getElementById('btn-pad')?.addEventListener('change', (e) => sendCommand('pad', e.target.checked));
-
-  // بدء الاتصال تلقائياً باستخدام البيانات المحفوظة
-  connectMQTT();
-});
-        
+  initMQTT();
+};
+                                              
