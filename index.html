@@ -3,273 +3,237 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hydro Farm</title>
-  <link rel="stylesheet" href="style.css?v=3">
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0b1329">
+  <title>Hydroponic Smart System</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
   <header class="app-header">
     <div class="header-content">
-      <h1>🌱 Hydro Farm</h1>
-      <span class="sub-title">الزراعة المائية الذكية</span>
+      <h1>🌱 Hydroponic Smart System</h1>
+      <span class="sub-title" id="sys-mode-status">نظام الزراعة المائية | وضع تلقائي</span>
     </div>
   </header>
 
-  <div class="main-content">
+  <main class="main-content">
 
-    <section id="page-home" class="page-tab active">
+    <!-- 1. DASHBOARD -->
+    <section id="tab-dashboard" class="page-tab active">
       <div class="status-card">
         <div class="status-row">
-          <span>حالة النظام:</span>
-          <span id="sys-status" class="badge red">🔴 غير متصل</span>
+          <span>حالة الاتصال بالنظام</span>
+          <span class="badge green" id="sys-status-badge">جاري الاتصال...</span>
         </div>
-        <div class="status-sub">
-          <span>ESP32: <strong id="esp-status">Offline</strong></span> | 
-          <span>MQTT: <strong id="mqtt-status">Offline</strong></span> | 
-          <span>الوضع: <strong id="sys-mode">AUTO</strong></span>
-        </div>
+        <div class="status-sub" id="sys-air-t">جاري استقبال البيانات...</div>
       </div>
 
-      <h3>قسم المراقبة (MQTT Telemetry)</h3>
       <div class="telemetry-grid">
+        <div class="gauge-card">
+          <span class="card-title">حرارة الهواء</span>
+          <div class="gauge-outer" id="gauge-air-temp">
+            <div class="gauge-inner">
+              <span class="gauge-value" id="val-air-temp">-- <small>°C</small></span>
+              <span class="gauge-icon"><i class="fa-solid fa-temperature-high"></i></span>
+            </div>
+          </div>
+        </div>
 
-  <!-- حرارة الهواء -->
-  <div class="gauge-card">
-    <span class="card-title">حرارة الهواء</span>
-    <div class="gauge-outer" id="gauge-air-temp">
-      <div class="gauge-inner">
-        <span class="gauge-value" id="val-air-temp">-- <small>°C</small></span>
-        <span class="gauge-icon">🌡️</span>
+        <div class="gauge-card">
+          <span class="card-title">رطوبة الهواء</span>
+          <div class="gauge-outer" id="gauge-air-hum">
+            <div class="gauge-inner">
+              <span class="gauge-value" id="val-air-hum">-- <small>%</small></span>
+              <span class="gauge-icon"><i class="fa-solid fa-droplet"></i></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="gauge-card">
+          <span class="card-title">حرارة الماء</span>
+          <div class="gauge-outer" id="gauge-water-temp">
+            <div class="gauge-inner">
+              <span class="gauge-value" id="val-water-temp">-- <small>°C</small></span>
+              <span class="gauge-icon"><i class="fa-solid fa-water"></i></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="gauge-card">
+          <span class="card-title">مستوى الخزان</span>
+          <div class="gauge-outer" id="gauge-tank">
+            <div class="gauge-inner">
+              <span class="gauge-value" id="val-tank">-- <small>%</small></span>
+              <span class="gauge-icon"><i class="fa-solid fa-square-poll-vertical"></i></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="gauge-card">
+          <span class="card-title">مستوى pH</span>
+          <div class="gauge-outer" id="gauge-ph">
+            <div class="gauge-inner">
+              <span class="gauge-value" id="val-ph">--</span>
+              <span class="gauge-icon"><i class="fa-solid fa-vial"></i></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="gauge-card">
+          <span class="card-title">السماد EC</span>
+          <div class="gauge-outer" id="gauge-ec">
+            <div class="gauge-inner">
+              <span class="gauge-value" id="val-ec">-- <small>mS/cm</small></span>
+              <span class="gauge-icon"><i class="fa-solid fa-bolt"></i></span>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
+    </section>
 
-  <!-- رطوبة الهواء -->
-  <div class="gauge-card">
-    <span class="card-title">رطوبة الهواء</span>
-    <div class="gauge-outer" id="gauge-air-hum">
-      <div class="gauge-inner">
-        <span class="gauge-value" id="val-air-hum">-- <small>%</small></span>
-        <span class="gauge-icon">💧</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- حرارة الماء -->
-  <div class="gauge-card">
-    <span class="card-title">حرارة الماء</span>
-    <div class="gauge-outer" id="gauge-water-temp">
-      <div class="gauge-inner">
-        <span class="gauge-value" id="val-water-temp">-- <small>°C</small></span>
-        <span class="gauge-icon">🌊</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- مستوى الخزان -->
-  <div class="gauge-card">
-    <span class="card-title">مستوى الخزان</span>
-    <div class="gauge-outer" id="gauge-tank">
-      <div class="gauge-inner">
-        <span class="gauge-value" id="val-tank">-- <small>%</small></span>
-        <span class="gauge-icon">🚰</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- حموضة الماء pH -->
-  <div class="gauge-card">
-    <span class="card-title">مستوى pH</span>
-    <div class="gauge-outer" id="gauge-ph">
-      <div class="gauge-inner">
-        <span class="gauge-value" id="val-ph">--</span>
-        <span class="gauge-icon">🧪</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- الناقلية الكهربائية EC -->
-  <div class="gauge-card">
-    <span class="card-title">السماد EC</span>
-    <div class="gauge-outer" id="gauge-ec">
-      <div class="gauge-inner">
-        <span class="gauge-value" id="val-ec">-- <small>mS/cm</small></span>
-        <span class="gauge-icon">⚡</span>
-      </div>
-    </div>
-  </div>
-
-</div>
-
-
-      <h3>التحكم السريع</h3>
+    <!-- 2. DEVICES -->
+    <section id="tab-devices" class="page-tab">
+      <h2 class="section-title">التحكم بالأجهزة والمضخات</h2>
       <div class="controls-list">
         <div class="control-item">
-          <div class="ctrl-info">💧 المضخة <span class="mode-tag">AUTO</span></div>
-          <label class="switch"><input type="checkbox" id="btn-pump" disabled><span class="slider"></span></label>
+          <div class="device-info">
+            <div class="device-icon-box"><i class="fa-solid fa-faucet-drip"></i></div>
+            <div class="device-details">
+              <strong>Pump 1 - Irrigation</strong>
+              <span>مضخة الري الرئيسية</span>
+            </div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="btn-pump1" onchange="toggleDevice('pump1', this.checked)">
+            <span class="slider"></span>
+          </label>
         </div>
+
         <div class="control-item">
-          <div class="ctrl-info">🌀 المروحة <span class="mode-tag">AUTO</span></div>
-          <label class="switch"><input type="checkbox" id="btn-fan" disabled><span class="slider"></span></label>
+          <div class="device-info">
+            <div class="device-icon-box"><i class="fa-solid fa-flask"></i></div>
+            <div class="device-details">
+              <strong>Pump 2 - Nutrient</strong>
+              <span>مضخة المحلول المغذي</span>
+            </div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="btn-pump2" onchange="toggleDevice('pump2', this.checked)">
+            <span class="slider"></span>
+          </label>
         </div>
+
         <div class="control-item">
-          <div class="ctrl-info">❄️ Pad Cooling <span class="mode-tag">AUTO</span></div>
-          <label class="switch"><input type="checkbox" id="btn-pad" disabled><span class="slider"></span></label>
+          <div class="device-info">
+            <div class="device-icon-box"><i class="fa-solid fa-fill-drip"></i></div>
+            <div class="device-details">
+              <strong>Pump 3 - Main Tank Fill</strong>
+              <span>مضخة تعبئة الخزان</span>
+            </div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="btn-pump3" onchange="toggleDevice('pump3', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="control-item">
+          <div class="device-info">
+            <div class="device-icon-box"><i class="fa-solid fa-snowflake"></i></div>
+            <div class="device-details">
+              <strong>Pump 4 - Pad Cooling</strong>
+              <span>مضخة التبريد التبخيري</span>
+            </div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="btn-pad" onchange="toggleDevice('pad', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="control-item">
+          <div class="device-info">
+            <div class="device-icon-box"><i class="fa-solid fa-fan"></i></div>
+            <div class="device-details">
+              <strong>Fan 1 - Exhaust Fan</strong>
+              <span>مروحة الشفط والتبريد</span>
+            </div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="btn-fan1" onchange="toggleDevice('fan1', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="control-item">
+          <div class="device-info">
+            <div class="device-icon-box"><i class="fa-solid fa-wind"></i></div>
+            <div class="device-details">
+              <strong>Fan 2 - Circulation Fan</strong>
+              <span>مروحة تحريك الهواء</span>
+            </div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="btn-fan2" onchange="toggleDevice('fan2', this.checked)">
+            <span class="slider"></span>
+          </label>
         </div>
       </div>
     </section>
 
-    <section id="page-data" class="page-tab">
-      <h3>القيم الحالية</h3>
-      <div class="grid-2">
-        <div class="card big"><span>🌡️ حرارة الهواء</span><strong id="d-air-temp">--°C</strong></div>
-        <div class="card big"><span>💧 رطوبة الهواء</span><strong id="d-air-hum">--%</strong></div>
-        <div class="card big"><span>🌊 حرارة الماء</span><strong id="d-water-temp">--°C</strong></div>
-        <div class="card big"><span>🚰 مستوى الخزان</span><strong id="d-tank">--%</strong></div>
-        <div class="card big"><span>⚡ EC</span><strong id="d-ec">--</strong></div>
-        <div class="card big"><span>🧪 pH</span><strong id="d-ph">--</strong></div>
-      </div>
-
-      <h3>الفترة الزمنية</h3>
-      <div class="time-filter">
-        <button class="filter-btn active">1 ساعة</button>
-        <button class="filter-btn">6 ساعات</button>
-        <button class="filter-btn">24 ساعة</button>
-        <button class="filter-btn">7 أيام</button>
-      </div>
-
-            <h3>الرسوم البيانية الحية</h3>
-      <div class="card chart-box">
-        <p style="margin-top:0; font-size: 13px; color: var(--accent-blue);">🌡️ مخطط حرارة الهواء (°C)</p>
-        <canvas id="airTempChart" style="max-height: 180px;"></canvas>
-      </div>
-      <div class="card chart-box">
-        <p style="margin-top:0; font-size: 13px; color: var(--accent-blue);">🚰 مخطط مستوى الخزان (%)</p>
-        <canvas id="tankLevelChart" style="max-height: 180px;"></canvas>
-      </div>
-
-    </section>
-
-    <section id="page-system" class="page-tab">
-      <h3>حالة النظام التدفقية</h3>
-      <div class="flow-container">
-        <div class="flow-card">🌡️ حرارة الهواء: <strong id="sys-air-t">28.4°C</strong></div>
-        <div class="flow-arrow">↓</div>
-        <div class="flow-card">🌀 المروحة: <strong>ON (AUTO)</strong></div>
-        <div class="flow-arrow">↓</div>
-        <div class="flow-card">🌱 أبراج الزراعة: <strong class="green">تعمل بشكل طبيعي</strong></div>
-        <div class="flow-arrow">↓</div>
-        <div class="flow-card">🚰 الخزان: <strong>78% (24.8°C)</strong></div>
-        <div class="flow-arrow">↓</div>
-        <div class="flow-card">💧 المضخة: <strong>ON (AUTO)</strong></div>
-      </div>
-
-      <div class="card mode-switcher-box">
-        <span>⚙️ وضع النظام:</span>
-        <button id="toggle-sys-mode" class="btn-primary" onclick="toggleSystemMode()">[ AUTO ]</button>
+    <!-- 3. LIVE MONITORING -->
+    <section id="tab-monitoring" class="page-tab">
+      <h2 class="section-title">المراقبة اللحظية</h2>
+      <div class="chart-card">
+        <h3>مخطط حرارة الهواء اللحظية (°C)</h3>
+        <canvas id="liveAirChart"></canvas>
       </div>
     </section>
 
-    <section id="page-alerts" class="page-tab">
-      <h3>سجل التنبيهات</h3>
-      <div id="alerts-list">
-        <div class="alert-item green">
-          <strong>🟢 النظام طبيعي</strong>
-          <p>النظام متصل و ESP32 يعمل بصورة طبيعية</p>
-        </div>
+    <!-- 4. HISTORY -->
+    <section id="tab-history" class="page-tab">
+      <h2 class="section-title">سجل البيانات التاريخي</h2>
+      <div class="chart-card">
+        <h3>مستوى الخزان الرئيسي (%)</h3>
+        <canvas id="liveTankChart"></canvas>
       </div>
     </section>
 
-    <section id="page-settings" class="page-tab">
-            <h3>⚙️ إعدادات MQTT</h3>
-      <div class="card form-card">
-        <label>MQTT Server</label>
-        <input type="text" id="mqtt-server" value="99580666d99a4632b4a1d5087e22d494.s1.eu.hivemq.cloud">
-        <label>Port</label>
-        <input type="text" id="mqtt-port" value="8884">
-        <label>Greenhouse</label>
-        <input type="text" id="mqtt-gh" value="GH001">
-        <label>Username</label>
-        <input type="text" id="mqtt-user" value="hydro01-test">
-        <label>Password</label>
-        <input type="password" id="mqtt-pass" placeholder="أدخل كلمة المرور">
-        <button class="btn-primary" onclick="connectMQTT()">اتصال MQTT</button>
-      </div>
-
-
-      <h3>⚙️ حدود التنبيه</h3>
-      <div class="card form-card">
-        <label>تحذير حرارة (°C)</label>
-        <input type="number" value="30">
-        <label>حرارة حرجة (°C)</label>
-        <input type="number" value="33">
-        <label>مستوى خزان منخفض (%)</label>
-        <input type="number" value="20">
-        <button class="btn-primary" onclick="alert('تم حفظ الإعدادات محلياً!')">حفظ الإعدادات</button>
-      </div>
-
-      <h3>🔥 Firebase / FCM</h3>
-      <div class="card">
-        <p>Firebase: <strong class="green">🟢 متصل</strong></p>
-        <p>FCM Token: <strong class="green">🟢 مفعّل</strong></p>
-        <button class="btn-secondary" onclick="testFCM()">اختبار Firebase / FCM</button>
-      </div>
-
-      <h3>🔧 تشخيص النظام (Debug Console)</h3>
-      <div class="card">
-        <div class="btn-group">
-          <button class="btn-small" onclick="testFCM()">🔥 اختبار FCM</button>
-          <button class="btn-small" onclick="logDebug('Service Worker OK')">⚙️ اختبار SW</button>
-          <button class="btn-small red" onclick="clearLogs()">🗑️ مسح السجل</button>
-        </div>
-        <div id="debug-console" class="console-box">
-          [System] Initializing Hydro Farm UI...<br>
-          [System] SPA Navigation Ready.
-        </div>
-      </div>
+    <!-- 5. MENU -->
+    <section id="tab-menu" class="page-tab">
+      <h2 class="section-title">الإعدادات وسجل النظام</h2>
+      <div class="console-box" id="debug-console">-- سجل الرسائل اللحظية (System Log) --<br></div>
     </section>
 
-  </div>
+  </main>
 
+  <!-- Bottom Navigation -->
   <nav class="bottom-nav">
-    <button class="nav-btn active" onclick="showTab('home', this)">
-      <span class="icon">🏠</span>
+    <button class="nav-btn active" onclick="switchTab('dashboard', this)">
+      <i class="fa-solid fa-house"></i>
       <span>الرئيسية</span>
     </button>
-    <button class="nav-btn" onclick="showTab('data', this)">
-      <span class="icon">📊</span>
-      <span>البيانات</span>
+    <button class="nav-btn" onclick="switchTab('devices', this)">
+      <i class="fa-solid fa-sliders"></i>
+      <span>الأجهزة</span>
     </button>
-    <button class="nav-btn" onclick="showTab('system', this)">
-      <span class="icon">🌱</span>
-      <span>النظام</span>
+    <button class="nav-btn" onclick="switchTab('monitoring', this)">
+      <i class="fa-solid fa-chart-line"></i>
+      <span>المراقبة</span>
     </button>
-    <button class="nav-btn" onclick="showTab('alerts', this)">
-      <span class="icon">🔔</span>
-      <span>التنبيهات</span>
+    <button class="nav-btn" onclick="switchTab('history', this)">
+      <i class="fa-solid fa-clock-rotate-left"></i>
+      <span>السجل</span>
     </button>
-    <button class="nav-btn" onclick="showTab('settings', this)">
-      <span class="icon">⚙️</span>
-      <span>الإعدادات</span>
+    <button class="nav-btn" onclick="switchTab('menu', this)">
+      <i class="fa-solid fa-bars"></i>
+      <span>القائمة</span>
     </button>
   </nav>
 
-
-  <!-- مكتبات MQTT و Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
-
-  <!-- مكتبات Firebase Web SDK (أضف هذين السطرين هنا) -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
-
-  <!-- ملفات النص البرمجي الخاصة بالمشروع -->
-  <script src="firebase.js"></script>
   <script src="app.js"></script>
-  <script src="pwa.js"></script>
 </body>
-</html>
-
-          
+  </html>
+            
